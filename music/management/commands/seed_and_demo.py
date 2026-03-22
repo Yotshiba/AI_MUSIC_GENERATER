@@ -3,7 +3,7 @@
 from django.core.management.base import BaseCommand
 
 from music.controllers import MusicController
-from music.models import Song, TokenRecord, User
+from music.models import Folder, Library, Profile, Song, TokenRecord, User
 
 
 class Command(BaseCommand):
@@ -11,6 +11,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         ctrl = MusicController
+
+        # Clean previous seed data so the command is re-runnable
+        Song.objects.all().delete()
+        Folder.objects.all().delete()
+        Library.objects.all().delete()
+        TokenRecord.objects.all().delete()
+        Profile.objects.all().delete()
+        User.objects.all().delete()
 
         self.stdout.write('\n=== CREATE ===')
 
