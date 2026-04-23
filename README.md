@@ -1,289 +1,218 @@
-# AI Music Generator – Domain Layer (Exercise 3)
+# AI Music Generator Web App
 
-Django implementation of the AI Music Generator domain model.
+A Django web application that allows users to generate, manage, and share AI-created music tracks using third-party music generation APIs (Suno / Mureka).
 
-## Domain Entities
+Prepared by **Chachalit Khanarat** — Hong Software Co.
+Based on SRS v1.0 (29/01/2026)
 
-| Entity | Description |
-|---|---|
-| **User** | A platform user with a role (Creator / Admin) |
-| **Profile** | One-to-one with User; holds `token_balance` |
-| **TokenRecord** | Many-per-user record of token transactions (Earned / Spent) |
-| **Library** | One-to-one with User; organises songs into folders |
-| **Folder** | Named folder inside a Library; holds songs |
-| **Song** | Core entity with title, genre, mood, occasion, singer style, topic, duration, status (Draft / Generating / Completed / Failed), visibility flag, and share token |
+---
 
-## Setup
+## Quick Start
 
 ```bash
-# 1. Create & activate a virtual environment (recommended)
+# 1. Create & activate a virtual environment
 python -m venv venv
-source venv/bin/activate   # Linux/Mac
-venv\Scripts\activate      # Windows
+source venv/bin/activate     # Linux/Mac
+venv\Scripts\activate        # Windows
 
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Apply migrations
+# 3. Copy environment config and fill in your values
+cp .env.example .env
+
+# 4. Apply database migrations
 python manage.py migrate
 
-# 4. Create a superuser for Django Admin
+# 5. Create a superuser (for Django Admin & local login)
 python manage.py createsuperuser
 
-# 5. Run the development server
+# 6. Start the development server  (Terminal 1)
 python manage.py runserver
+
+# 7. Start the background task worker  (Terminal 2 — REQUIRED for music generation)
+python manage.py qcluster
 ```
 
-## CRUD Operations
+> **Both terminals must be running.** Without `qcluster`, submitted generation requests will queue in the database but never execute.
 
-### Via Django Admin
+Visit `http://127.0.0.1:8000/` — you will be redirected to the login page.
 
-Visit `http://127.0.0.1:8000/admin/` and log in with your superuser credentials.
-All domain entities (User, Profile, TokenRecord, Library, Folder, Song) are registered and fully manageable through the admin interface.
+---
 
-### Via Management Command
+## Environment Variables
 
-Run the included demo command to seed sample data and see Create, Read, Update, and Delete operations in action:
+Copy `.env.example` to `.env` and fill in your values:
+
+| Variable | Description |
+|----------|-------------|
+| `SECRET_KEY` | Django secret key |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID (see `.env.example` for setup steps) |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
+| `MUSIC_API_PROVIDER` | Default provider: `mureka` or `suno` |
+| `MUREKA_API_KEY` | API key from platform.mureka.ai |
+| `SUNO_API_KEY` | API key from sunoapi.org |
+| `SUNO_BASE_URL` | Suno base URL (default: `https://api.sunoapi.org`) |
+
+---
+
+## Google OAuth Setup (one-time)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
+2. Create an **OAuth 2.0 Client ID** (Web application)
+3. Add authorised redirect URI: `http://localhost:8000/accounts/google/login/callback/`
+4. Copy the Client ID and Secret into `.env`
+5. In Django Admin → **Sites** → change domain to `localhost:8000`
+6. In Django Admin → **Social Applications** → add a new Google provider using those credentials
+
+---
+
+## Features
+
+| Feature | SRS Ref | Status |
+|---------|---------|--------|
+| Walled Garden (login required everywhere) | REQ-4.1.1 | ✅ |
+| Username / password login | REQ-4.1.2 | ✅ |
+| Google OAuth login | REQ-4.1.2 | ✅ |
+| Token deduction per generation | REQ-4.2.1 | ✅ |
+| Block generation when tokens = 0 | REQ-4.2.2 | ✅ |
+| Admin token management (Django Admin) | REQ-4.2.3 | ✅ |
+| 6-field music generation form | REQ-4.3.1 | ✅ |
+| Async generation (non-blocking browser) | REQ-4.3.2 | ✅ |
+| Navigate away while generating | REQ-4.3.3 | ✅ |
+| Global status bar with real-time progress | REQ-4.3.4 | ✅ |
+| Token refund on failure / timeout | REQ-4.3.7 | ✅ |
+| Personal library with track list | REQ-4.4.1 | ✅ |
+| Delete track (with confirmation modal) | REQ-4.4.2 | ✅ |
+| Tracks private by default | REQ-4.4.3 | ✅ |
+| Toggle public / private + share URL | REQ-4.4.4 | ✅ |
+| Public Listen Page (no login required) | REQ-4.4.5 | ✅ |
+| Persistent mini-player (Play, Pause, Seek, Volume) | REQ-4.5.1 | ✅ |
+| Player continues across page navigation | REQ-4.5.2 | ✅ |
+| Profanity / bad-word filter on inputs | REQ-5.2.1 | ✅ |
+| API keys stored in environment variables | REQ-5.3.2 | ✅ |
+| Dark / Light mode toggle | SRS 3.1.2 | ✅ |
+| Responsive layout (320 px → desktop) | SRS 5.6.3 | ✅ |
+| Toast notifications | UC-02 | ✅ |
+| Empty library state with CTA | UC-02 A3 | ✅ |
+| Generation / Failed status badges | UC-01 | ✅ |
+
+---
+
+## Architecture
+
+```
+ai_music_generator/          # Django project config
+  settings.py                # All settings (allauth, django-q2, API keys)
+  urls.py                    # Root router → allauth + music app
+
+music/
+  models/                    # Domain entities (1 file per model)
+    user.py                  # User (Creator / Admin role)
+    profile.py               # Profile (token_balance)
+    token_record.py          # Token audit trail
+    library.py               # Library (1-to-1 with User)
+    folder.py                # Folder inside a Library
+    song.py                  # Song (core entity, all metadata + timestamps)
+  controllers/               # Use-case business logic
+    generate_music.py        # UC-01: request, complete, fail, refund
+    manage_library.py        # UC-02: list, delete, toggle privacy
+    admin_token.py           # UC-03: set balance, list users
+  services/                  # Strategy pattern for AI providers
+    base.py                  # Abstract MusicGenerationStrategy
+    mureka.py                # Mureka API implementation
+    suno.py                  # Suno API implementation
+    __init__.py              # Provider registry + get_strategy()
+  tasks.py                   # django-q2 background task (async generation)
+  profanity.py               # Bad-word filter (REQ-5.2.1)
+  views.py                   # Django view functions
+  urls.py                    # App URL patterns
+  admin.py                   # Django Admin config for all models
+  templates/music/
+    base.html                # Shared layout: nav, status bar, mini-player,
+                             #   theme toggle, toasts, modal, responsive CSS
+    generate.html            # UC-01 generation form
+    library.html             # UC-02 track list with play/delete/privacy actions
+    public_listen.html       # Public share page (no auth required)
+  migrations/                # 4 migration files (0001–0004)
+  management/commands/
+    seed_and_demo.py         # Demo seed data for all 3 use cases
+
+templates/
+  registration/login.html    # Login page with username + Google OAuth button
+```
+
+---
+
+## Domain Model
+
+| Entity | Key Fields |
+|--------|-----------|
+| **User** | name, email, role (Creator/Admin) |
+| **Profile** | token_balance (integer, 0–9999) |
+| **TokenRecord** | amount, type (Earned/Spent) |
+| **Library** | one-to-one with User |
+| **Folder** | name, FK → Library |
+| **Song** | title, genre, mood, occasion, singer_style, topic, duration, status, provider, file_url, is_public, share_token, created_at, updated_at |
+
+Song statuses: `Draft → Generating → Completed / Failed`
+
+---
+
+## Use Cases
+
+### UC-01 — Generate and Share Music
+1. User fills in the generation form (title required; genre, mood, occasion, singer style, topic optional)
+2. System checks token balance and runs profanity filter
+3. Tokens deducted; background task queued via django-q2
+4. User is redirected to Library immediately (non-blocking)
+5. Global status bar polls `/api/generation-status/` every 3 seconds and updates in real time
+6. On completion the track appears in the Library; on failure tokens are refunded
+7. User can toggle a track Public to get a shareable link; anyone can open it without logging in
+
+### UC-02 — Manage Library & Playback
+1. Library lists all tracks with status badges, genre, mood, duration, privacy
+2. Click **Play** on a completed track → mini-player appears in the footer
+3. Navigate to another page → audio keeps playing (state saved in localStorage)
+4. Click **Delete** → confirmation modal; on confirm, track is removed and a toast appears
+5. Click **Make Public / Private** → privacy toggled instantly
+6. Empty library shows a friendly message with a link to the generator
+
+### UC-03 — Admin Token Management
+- Django Admin at `/admin/` → User Profiles → edit `token_balance`
+- Every change is recorded in `django_admin_log` automatically
+- Balance is validated: 0 ≤ balance ≤ 9999
+
+---
+
+## Running Tests
+
+```bash
+python manage.py test
+```
+
+> Test suite is a placeholder (`music/tests.py`). Unit tests for controllers and views are a planned next step.
+
+---
+
+## Seed Data (Demo)
 
 ```bash
 python manage.py seed_and_demo
 ```
 
-Output demonstrates:
-- **Create** – Users, Profiles, TokenRecords, Libraries, Folders, Songs
-- **Read** – Querying users, filtering songs by user, retrieving token balances
-- **Update** – Changing song status, adjusting token balance, renaming folders
-- **Delete** – Removing a song and verifying the count
+Creates sample users, profiles, libraries, and songs and prints a walkthrough of all three use cases.
 
-### Via MusicController
+---
 
-All CRUD operations are handled by a single unified controller (`music/controllers.py`):
+## Dependencies
 
-```python
-from music.controllers import MusicController
-
-# Create
-user = MusicController.create_user(name='Alice', email='alice@example.com')
-profile = MusicController.create_profile(user=user, token_balance=100)
-library = MusicController.create_library(user=user)
-folder = MusicController.create_folder(library=library, name='My Songs')
-song = MusicController.create_song(user=user, title='My Song', genre='Pop')
-
-# Read
-user = MusicController.get_user(user_id=1)
-songs = MusicController.list_songs(user=user)
-
-# Update
-MusicController.update_song(song_id=1, status='Completed', is_public=True)
-
-# Delete
-MusicController.delete_song(song_id=1)
-```
-
-## Project Structure
-
-```
-ai_music_generator/          # Django project settings
-music/
-  models/                    # Domain models (1 model per file)
-    __init__.py              # Re-exports all models
-    user.py                  # User model
-    profile.py               # Profile model
-    token_record.py          # TokenRecord model
-    library.py               # Library model
-    folder.py                # Folder model
-    song.py                  # Song model
-  controllers.py             # Unified MusicController with CRUD for all models
-  admin.py                   # Django Admin registration for CRUD
-  management/commands/
-    seed_and_demo.py         # Management command demonstrating CRUD operations
-  migrations/                # Database migration files
-```
-
-## Class Diagram
-
-```mermaid
-classDiagram
-    class UserRole {
-        <<enumeration>>
-        Creator
-        Admin
-    }
-
-    class SongStatus {
-        <<enumeration>>
-        Draft
-        Generating
-        Completed
-        Failed
-    }
-
-    class TokenType {
-        <<enumeration>>
-        Earned
-        Spent
-    }
-
-    class User {
-        +String name
-        +String email
-        +UserRole role
-        +__str__() String
-    }
-
-    class Profile {
-        +Integer token_balance
-        +__str__() String
-    }
-
-    class TokenRecord {
-        +Integer amount
-        +TokenType type
-        +__str__() String
-    }
-
-    class Library {
-        +__str__() String
-    }
-
-    class Folder {
-        +String name
-        +__str__() String
-    }
-
-    class Song {
-        +String title
-        +String genre
-        +String mood
-        +String occasion
-        +String singer_style
-        +String topic
-        +Integer duration
-        +SongStatus status
-        +Boolean is_public
-        +UUID share_token
-        +__str__() String
-    }
-
-    class MusicController {
-        +create_user(name, email, role)$ User
-        +get_user(user_id)$ User
-        +list_users(filters)$ QuerySet
-        +update_user(user_id, kwargs)$ User
-        +delete_user(user_id)$ void
-        +create_profile(user, token_balance)$ Profile
-        +get_profile(user_id)$ Profile
-        +update_profile(user_id, kwargs)$ Profile
-        +delete_profile(user_id)$ void
-        +create_token_record(user, amount, type)$ TokenRecord
-        +get_token_record(record_id)$ TokenRecord
-        +list_token_records(user_id)$ QuerySet
-        +update_token_record(record_id, kwargs)$ TokenRecord
-        +delete_token_record(record_id)$ void
-        +create_library(user)$ Library
-        +get_library(user_id)$ Library
-        +delete_library(user_id)$ void
-        +create_folder(library, name)$ Folder
-        +get_folder(folder_id)$ Folder
-        +list_folders(library_id)$ QuerySet
-        +update_folder(folder_id, kwargs)$ Folder
-        +delete_folder(folder_id)$ void
-        +create_song(user, title, kwargs)$ Song
-        +get_song(song_id)$ Song
-        +list_songs(filters)$ QuerySet
-        +update_song(song_id, kwargs)$ Song
-        +delete_song(song_id)$ void
-    }
-
-    User "1" -- "1" Profile : has
-    User "1" -- "0..*" TokenRecord : has
-    User "1" -- "1" Library : has
-    User "1" -- "0..*" Song : has
-    Library "1" -- "0..*" Folder : has
-    Folder "1" -- "0..*" Song : keeps
-
-    MusicController ..> User : manages
-    MusicController ..> Profile : manages
-    MusicController ..> TokenRecord : manages
-    MusicController ..> Library : manages
-    MusicController ..> Folder : manages
-    MusicController ..> Song : manages
-```
-
-## Sequence Diagram (CRUD Operations)
-
-```mermaid
-sequenceDiagram
-    participant Client
-    participant Controller as MusicController
-    participant DB as Database
-
-    Note over Client, DB: === CREATE ===
-
-    Client->>Controller: create_user("Alice", "alice@example.com", CREATOR)
-    Controller->>DB: User.objects.create(...)
-    DB-->>Controller: User instance
-    Controller-->>Client: User
-
-    Client->>Controller: create_profile(alice, token_balance=100)
-    Controller->>DB: Profile.objects.create(...)
-    DB-->>Controller: Profile instance
-    Controller-->>Client: Profile
-
-    Client->>Controller: create_library(alice)
-    Controller->>DB: Library.objects.create(...)
-    DB-->>Controller: Library instance
-    Controller-->>Client: Library
-
-    Client->>Controller: create_folder(library, "Pop Songs")
-    Controller->>DB: Folder.objects.create(...)
-    DB-->>Controller: Folder instance
-    Controller-->>Client: Folder
-
-    Client->>Controller: create_song(alice, "Sunshine Melody", genre="Pop", ...)
-    Controller->>DB: Song.objects.create(...)
-    DB-->>Controller: Song instance
-    Controller-->>Client: Song
-
-    Note over Client, DB: === READ ===
-
-    Client->>Controller: list_users()
-    Controller->>DB: User.objects.filter(...)
-    DB-->>Controller: QuerySet
-    Controller-->>Client: [User, ...]
-
-    Client->>Controller: get_profile(user_id)
-    Controller->>DB: get_object_or_404(Profile, user_id)
-    DB-->>Controller: Profile instance
-    Controller-->>Client: Profile
-
-    Client->>Controller: list_songs(user=alice)
-    Controller->>DB: Song.objects.filter(user=alice)
-    DB-->>Controller: QuerySet
-    Controller-->>Client: [Song, ...]
-
-    Note over Client, DB: === UPDATE ===
-
-    Client->>Controller: update_song(song_id, status="Completed", is_public=True)
-    Controller->>DB: Song.objects.filter(pk).update(...)
-    DB-->>Controller: updated
-    Controller->>DB: Song.objects.get(pk)
-    DB-->>Controller: Song instance
-    Controller-->>Client: Song
-
-    Client->>Controller: update_folder(folder_id, name="Favourite Pop")
-    Controller->>DB: Folder.objects.filter(pk).update(...)
-    DB-->>Controller: updated
-    Controller->>DB: Folder.objects.get(pk)
-    DB-->>Controller: Folder instance
-    Controller-->>Client: Folder
-
-    Note over Client, DB: === DELETE ===
-
-    Client->>Controller: delete_song(song_id)
-    Controller->>DB: get_object_or_404(Song, pk)
-    DB-->>Controller: Song instance
-    Controller->>DB: song.delete()
-    DB-->>Controller: deleted
-    Controller-->>Client: void
-```
+| Package | Purpose |
+|---------|---------|
+| `django>=5.0` | Web framework |
+| `python-dotenv` | Load `.env` into settings |
+| `requests` | HTTP calls to Suno / Mureka APIs |
+| `django-allauth` | Google OAuth + account management |
+| `django-q2` | Background task queue (async generation) |
+| `PyJWT` | JWT verification for allauth Google provider |
+| `cryptography` | Cryptographic backend for PyJWT |

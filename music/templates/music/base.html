@@ -1,70 +1,223 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}AI Music Generator{% endblock %}</title>
+  <script>
+    /* Restore theme before first paint to avoid flash */
+    (function() {
+      var t = localStorage.getItem('theme') || 'dark';
+      document.documentElement.setAttribute('data-theme', t);
+    })();
+  </script>
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: system-ui, sans-serif; background: #0f0f13; color: #e8e8f0; min-height: 100vh; }
-    nav {
-      display: flex; align-items: center; gap: 1rem;
-      padding: 0.75rem 2rem; background: #1a1a24; border-bottom: 1px solid #2e2e42;
+    :root {
+      --bg: #0f0f13;
+      --surface: #1a1a24;
+      --border: #2e2e42;
+      --text: #e8e8f0;
+      --muted: #6b6b8a;
+      --label: #a0a0b8;
+      --accent: #7c3aed;
+      --accent-hover: #6d28d9;
+      --accent-light: #c4b5fd;
+      --accent-badge: #a78bfa;
+      --input-bg: #0f0f18;
+      --danger-bg: #7f1d1d;
+      --danger-text: #fca5a5;
+      --danger-bg-dark: #3b1c1c;
+      --public-bg: #14532d;
+      --public-text: #86efac;
+      --private-bg: #1e293b;
+      --private-text: #94a3b8;
+      --nav-bg: #1a1a24;
+      --tag-bg: #2e2e42;
     }
-    nav .brand { font-weight: 700; font-size: 1.1rem; color: #a78bfa; text-decoration: none; }
-    nav a { color: #c4b5fd; text-decoration: none; font-size: 0.9rem; }
-    nav a:hover { color: #fff; }
+    [data-theme="light"] {
+      --bg: #f0f0f5;
+      --surface: #ffffff;
+      --border: #d1d1db;
+      --text: #1a1a2e;
+      --muted: #6b6b8a;
+      --label: #4a4a60;
+      --accent: #7c3aed;
+      --accent-hover: #6d28d9;
+      --accent-light: #6d28d9;
+      --accent-badge: #5b21b6;
+      --input-bg: #f5f5fa;
+      --danger-bg: #991b1b;
+      --danger-text: #ffffff;
+      --danger-bg-dark: #fee2e2;
+      --public-bg: #dcfce7;
+      --public-text: #166534;
+      --private-bg: #f1f5f9;
+      --private-text: #475569;
+      --nav-bg: #ffffff;
+      --tag-bg: #e5e5f0;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.45} }
+
+    /* ── Nav ─────────────────────────────────────────────────────────── */
+    nav {
+      display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+      padding: 0.75rem 2rem; background: var(--nav-bg); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100;
+    }
+    nav .brand { font-weight: 700; font-size: 1.1rem; color: var(--accent-badge); text-decoration: none; }
+    nav a { color: var(--accent-light); text-decoration: none; font-size: 0.9rem; }
+    nav a:hover { color: var(--text); }
     nav .spacer { flex: 1; }
     nav .token-badge {
-      background: #2e2e42; border-radius: 999px; padding: 0.25rem 0.75rem;
-      font-size: 0.8rem; color: #a78bfa;
+      background: var(--tag-bg); border-radius: 999px; padding: 0.25rem 0.75rem;
+      font-size: 0.8rem; color: var(--accent-badge);
     }
     nav .btn-nav {
-      background: #7c3aed; color: #fff; padding: 0.35rem 0.9rem;
+      background: var(--accent); color: #fff; padding: 0.35rem 0.9rem;
       border-radius: 6px; font-size: 0.85rem; text-decoration: none;
     }
-    nav .btn-nav:hover { background: #6d28d9; color: #fff; }
-    main { max-width: 860px; margin: 2rem auto; padding: 0 1.5rem; }
+    nav .btn-nav:hover { background: var(--accent-hover); color: #fff; }
+    #theme-toggle {
+      background: none; border: 1px solid var(--border); color: var(--label);
+      border-radius: 6px; padding: 0.3rem 0.6rem; cursor: pointer; font-size: 0.82rem;
+    }
+    #theme-toggle:hover { border-color: var(--accent-light); color: var(--accent-light); }
+
+    /* ── Layout ──────────────────────────────────────────────────────── */
+    main { max-width: 860px; margin: 2rem auto; padding: 0 1.5rem; padding-bottom: 5rem; }
     .card {
-      background: #1a1a24; border: 1px solid #2e2e42;
+      background: var(--surface); border: 1px solid var(--border);
       border-radius: 12px; padding: 1.5rem 2rem; margin-bottom: 1.5rem;
     }
-    h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #e8e8f0; }
-    h2 { font-size: 1.1rem; margin-bottom: 0.75rem; color: #c4b5fd; }
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; color: var(--text); }
+    h2 { font-size: 1.1rem; margin-bottom: 0.75rem; color: var(--accent-light); }
+
+    /* ── Alerts & Inputs ─────────────────────────────────────────────── */
     .alert-error {
-      background: #3b1c1c; border: 1px solid #7f1d1d; color: #fca5a5;
+      background: var(--danger-bg-dark); border: 1px solid var(--danger-bg); color: var(--danger-text);
       border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.9rem;
     }
-    label { display: block; font-size: 0.85rem; color: #a0a0b8; margin-bottom: 0.3rem; margin-top: 0.9rem; }
-    input[type=text], input[type=password], select, textarea {
+    .alert-success {
+      background: var(--public-bg); border: 1px solid var(--public-text); color: var(--public-text);
+      border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.9rem;
+    }
+    label { display: block; font-size: 0.85rem; color: var(--label); margin-bottom: 0.3rem; margin-top: 0.9rem; }
+    input[type=text], input[type=password], input[type=email], select, textarea {
       width: 100%; padding: 0.55rem 0.75rem; border-radius: 7px;
-      border: 1px solid #2e2e42; background: #0f0f18; color: #e8e8f0;
+      border: 1px solid var(--border); background: var(--input-bg); color: var(--text);
       font-size: 0.95rem;
     }
-    input:focus, select:focus, textarea:focus { outline: none; border-color: #7c3aed; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+
+    /* ── Buttons ─────────────────────────────────────────────────────── */
     .btn {
       display: inline-block; padding: 0.55rem 1.25rem; border-radius: 7px;
       border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;
     }
-    .btn-primary { background: #7c3aed; color: #fff; }
-    .btn-primary:hover { background: #6d28d9; }
-    .btn-danger { background: #7f1d1d; color: #fca5a5; }
-    .btn-danger:hover { background: #991b1b; }
-    .btn-secondary { background: #2e2e42; color: #c4b5fd; }
-    .btn-secondary:hover { background: #3a3a54; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-danger { background: var(--danger-bg); color: var(--danger-text); }
+    .btn-danger:hover { filter: brightness(1.15); }
+    .btn-secondary { background: var(--tag-bg); color: var(--accent-light); }
+    .btn-secondary:hover { filter: brightness(1.15); }
+
+    /* ── Table ───────────────────────────────────────────────────────── */
     table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    th { text-align: left; padding: 0.5rem 0.75rem; color: #a0a0b8; font-weight: 600;
-         border-bottom: 1px solid #2e2e42; }
-    td { padding: 0.65rem 0.75rem; border-bottom: 1px solid #1e1e2e; vertical-align: middle; }
+    th { text-align: left; padding: 0.5rem 0.75rem; color: var(--label); font-weight: 600;
+         border-bottom: 1px solid var(--border); }
+    td { padding: 0.65rem 0.75rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
-    .badge-public  { background: #14532d; color: #86efac; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
-    .badge-private { background: #1e293b; color: #94a3b8; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
-    .share-url { font-size: 0.75rem; color: #7c3aed; word-break: break-all; }
-    .empty-state { text-align: center; padding: 3rem 0; color: #6b6b8a; }
-    .empty-state a { color: #a78bfa; }
+
+    /* ── Badges ──────────────────────────────────────────────────────── */
+    .badge-public  { background: var(--public-bg);  color: var(--public-text);  padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+    .badge-private { background: var(--private-bg); color: var(--private-text); padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+    .badge-generating { background: #4c1d95; color: #e9d5ff; padding: 0.1rem 0.45rem; border-radius: 999px; font-size: 0.72rem; animation: pulse 1.5s infinite; }
+    .badge-failed     { background: var(--danger-bg); color: var(--danger-text); padding: 0.1rem 0.45rem; border-radius: 999px; font-size: 0.72rem; }
+
+    .share-url { font-size: 0.75rem; color: var(--accent); word-break: break-all; }
+    .empty-state { text-align: center; padding: 3rem 0; color: var(--muted); }
+    .empty-state a { color: var(--accent-badge); }
+
+    /* ── Global Generation Status Bar ───────────────────────────────── */
+    #gen-status-bar {
+      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+      background: #4c1d95; color: #e9d5ff; font-size: 0.83rem;
+      text-align: center; padding: 0.45rem 1rem;
+    }
+    #gen-status-bar.error { background: #7f1d1d; color: #fca5a5; }
+
+    /* ── Mini Player ─────────────────────────────────────────────────── */
+    #mini-player {
+      display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 500;
+      background: var(--nav-bg); border-top: 1px solid var(--border);
+      padding: 0.6rem 1.5rem; align-items: center; gap: 1rem;
+    }
+    #mp-title {
+      font-size: 0.83rem; color: var(--accent-light); min-width: 140px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;
+    }
+    #mp-audio { flex: 1; accent-color: var(--accent); min-width: 0; }
+    #mp-close {
+      background: none; border: none; color: var(--muted); cursor: pointer;
+      font-size: 1.1rem; flex-shrink: 0; padding: 0.2rem;
+    }
+    #mp-close:hover { color: var(--text); }
+
+    /* ── Toast Notifications ─────────────────────────────────────────── */
+    #toast-container {
+      position: fixed; bottom: 80px; right: 1.5rem; z-index: 1500;
+      display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none;
+    }
+    .toast {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+      padding: 0.75rem 1.25rem; color: var(--text); font-size: 0.88rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3); opacity: 1; transition: opacity 0.4s ease;
+      pointer-events: auto;
+    }
+
+    /* ── Delete Confirmation Modal ───────────────────────────────────── */
+    #delete-modal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+      z-index: 2000; align-items: center; justify-content: center;
+    }
+    #delete-modal.open { display: flex; }
+    .modal-box {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+      padding: 2rem 2.25rem; max-width: 380px; width: 92%; text-align: center;
+    }
+    .modal-box h3 { color: var(--text); margin-bottom: 0.6rem; font-size: 1.15rem; }
+    .modal-box p  { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+    .modal-actions { display: flex; gap: 0.75rem; justify-content: center; }
+
+    /* ── Responsive ──────────────────────────────────────────────────── */
+    @media (max-width: 480px) {
+      nav { padding: 0.6rem 1rem; gap: 0.5rem; }
+      nav .token-badge { font-size: 0.72rem; }
+      main { padding: 0 0.75rem 5rem; margin: 1rem auto; }
+      .card { padding: 1rem 1.25rem; }
+      table { font-size: 0.78rem; }
+      th:nth-child(3), td:nth-child(3),
+      th:nth-child(4), td:nth-child(4) { display: none; }
+      #mini-player { flex-direction: column; padding: 0.5rem 1rem; gap: 0.4rem; }
+      #mp-audio { width: 100%; }
+      #mp-title { min-width: unset; }
+      #toast-container { right: 0.75rem; left: 0.75rem; }
+    }
+    @media (min-width: 481px) and (max-width: 1024px) {
+      main { padding: 0 1rem 5rem; }
+      nav { padding: 0.75rem 1.25rem; }
+    }
   </style>
 </head>
 <body>
+
+<!-- Generation Status Bar (REQ-4.3.4) -->
+<div id="gen-status-bar"><span id="gen-status-text"></span></div>
+
 {% if user.is_authenticated %}
 <nav>
   <a class="brand" href="{% url 'music:library' %}">AI Music</a>
@@ -72,15 +225,205 @@
   <a class="btn-nav" href="{% url 'music:generate' %}">+ Generate</a>
   <span class="spacer"></span>
   <span class="token-badge">{{ profile.token_balance }} tokens</span>
-  <span style="font-size:0.85rem; color:#6b6b8a;">{{ user.username }}</span>
-  <form method="post" action="{% url 'logout' %}" style="display:inline">
+  <button id="theme-toggle" title="Toggle theme">☀ Light</button>
+  <span style="font-size:0.85rem; color:var(--muted);">{{ user.username|default:user.email }}</span>
+  <form method="post" action="{% url 'account_logout' %}" style="display:inline">
     {% csrf_token %}
-    <button type="submit" style="background:none;border:none;color:#6b6b8a;cursor:pointer;font-size:0.85rem;">Logout</button>
+    <button type="submit" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.85rem;">Logout</button>
   </form>
 </nav>
 {% endif %}
+
+<!-- Toast messages -->
+{% if messages %}
+<div id="toast-container">
+  {% for message in messages %}
+  <div class="toast {% if message.tags == 'error' %}alert-error{% endif %}">{{ message }}</div>
+  {% endfor %}
+</div>
+<script>
+  setTimeout(function() {
+    document.querySelectorAll('.toast').forEach(function(t) {
+      t.style.opacity = '0';
+      setTimeout(function() { t.remove(); }, 420);
+    });
+  }, 3000);
+</script>
+{% endif %}
+
 <main>
   {% block content %}{% endblock %}
 </main>
+
+<!-- Mini Player (REQ-4.5.1, REQ-4.5.2) -->
+<div id="mini-player">
+  <span id="mp-title"></span>
+  <audio id="mp-audio" controls></audio>
+  <button id="mp-close" title="Close player">✕</button>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal">
+  <div class="modal-box">
+    <h3>Delete Track</h3>
+    <p id="modal-msg"></p>
+    <div class="modal-actions">
+      <button id="modal-cancel" class="btn btn-secondary">Cancel</button>
+      <button id="modal-confirm" class="btn btn-danger">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  /* ── Theme Toggle ─────────────────────────────────────────────── */
+  var html = document.documentElement;
+  var themeBtn = document.getElementById('theme-toggle');
+  function applyTheme(t) {
+    html.setAttribute('data-theme', t);
+    if (themeBtn) themeBtn.textContent = t === 'dark' ? '☀ Light' : '🌙 Dark';
+    localStorage.setItem('theme', t);
+  }
+  var savedTheme = localStorage.getItem('theme') || 'dark';
+  applyTheme(savedTheme);
+  if (themeBtn) {
+    themeBtn.addEventListener('click', function() {
+      applyTheme(html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
+    });
+  }
+
+  {% if user.is_authenticated %}
+  /* ── Generation Status Bar ────────────────────────────────────── */
+  var statusBar  = document.getElementById('gen-status-bar');
+  var statusText = document.getElementById('gen-status-text');
+  var hideTimer  = null;
+
+  function pollStatus() {
+    fetch('{% url "music:generation_status" %}', {
+      headers: {'X-Requested-With': 'XMLHttpRequest'},
+      credentials: 'same-origin'
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var generating = data.tasks.filter(function(t) { return t.status === 'Generating'; });
+      var done       = data.tasks.filter(function(t) { return t.status === 'Completed' || t.status === 'Failed'; });
+
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+
+      if (generating.length > 0) {
+        var names = generating.map(function(t) { return '"' + t.title + '"'; }).join(', ');
+        statusText.textContent = '⏳ Generating ' + names + '…  You can navigate freely.';
+        statusBar.className = '';
+        statusBar.style.display = 'block';
+      } else if (done.length > 0) {
+        var t = done[0];
+        if (t.status === 'Completed') {
+          statusText.textContent = '✅ "' + t.title + '" is ready!';
+          statusBar.className = '';
+        } else {
+          statusText.textContent = '❌ "' + t.title + '" generation failed — tokens refunded.';
+          statusBar.className = 'error';
+        }
+        statusBar.style.display = 'block';
+        hideTimer = setTimeout(function() {
+          statusBar.style.display = 'none';
+          if (t.status === 'Completed' && window.location.pathname === '/library/') {
+            window.location.reload();
+          }
+        }, 5000);
+      } else {
+        statusBar.style.display = 'none';
+      }
+    })
+    .catch(function() {});
+  }
+  pollStatus();
+  setInterval(pollStatus, 3000);
+
+  /* ── Persistent Mini-Player ───────────────────────────────────── */
+  var MP_KEY   = 'mp_state';
+  var player   = document.getElementById('mini-player');
+  var audio    = document.getElementById('mp-audio');
+  var mpTitle  = document.getElementById('mp-title');
+  var mpClose  = document.getElementById('mp-close');
+
+  function showPlayer(url, title, startTime, paused) {
+    mpTitle.textContent = title;
+    if (audio.src !== url) { audio.src = url; }
+    player.style.display = 'flex';
+    if (startTime && audio.readyState >= 1) { audio.currentTime = startTime; }
+    else if (startTime) {
+      audio.addEventListener('loadedmetadata', function handler() {
+        audio.currentTime = startTime;
+        audio.removeEventListener('loadedmetadata', handler);
+      });
+    }
+    if (!paused) { audio.play().catch(function(){}); }
+  }
+
+  function saveState() {
+    if (!audio.src || audio.src === window.location.href) return;
+    localStorage.setItem(MP_KEY, JSON.stringify({
+      url: audio.src, title: mpTitle.textContent,
+      time: audio.currentTime, paused: audio.paused
+    }));
+  }
+
+  var saved = null;
+  try { saved = JSON.parse(localStorage.getItem(MP_KEY)); } catch(e) {}
+  if (saved && saved.url) { showPlayer(saved.url, saved.title, saved.time, saved.paused); }
+
+  window.addEventListener('beforeunload', saveState);
+  audio.addEventListener('timeupdate', function() {
+    if (Math.floor(audio.currentTime) % 5 === 0) { saveState(); }
+  });
+
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.play-btn');
+    if (!btn) return;
+    var url   = btn.dataset.url;
+    var title = btn.dataset.title;
+    localStorage.setItem(MP_KEY, JSON.stringify({url: url, title: title, time: 0, paused: false}));
+    showPlayer(url, title, 0, false);
+  });
+
+  mpClose.addEventListener('click', function() {
+    audio.pause();
+    player.style.display = 'none';
+    localStorage.removeItem(MP_KEY);
+  });
+
+  /* ── Delete Confirmation Modal ────────────────────────────────── */
+  var modal       = document.getElementById('delete-modal');
+  var modalMsg    = document.getElementById('modal-msg');
+  var modalCancel = document.getElementById('modal-cancel');
+  var modalConfirm= document.getElementById('modal-confirm');
+  var pendingForm = null;
+
+  document.addEventListener('submit', function(e) {
+    var form = e.target;
+    if (!form.classList.contains('delete-form')) return;
+    e.preventDefault();
+    pendingForm = form;
+    modalMsg.textContent = 'Delete "' + (form.dataset.title || 'this track') + '"? This action cannot be undone.';
+    modal.classList.add('open');
+  });
+
+  modalCancel.addEventListener('click', function() {
+    modal.classList.remove('open');
+    pendingForm = null;
+  });
+
+  modalConfirm.addEventListener('click', function() {
+    modal.classList.remove('open');
+    if (pendingForm) { pendingForm.submit(); }
+  });
+
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) { modal.classList.remove('open'); pendingForm = null; }
+  });
+  {% endif %}
+})();
+</script>
 </body>
 </html>

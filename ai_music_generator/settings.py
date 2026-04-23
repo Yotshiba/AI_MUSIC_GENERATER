@@ -46,6 +46,12 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.sites',
+    'allauth',
+    'allauth.account',
+    'allauth.socialaccount',
+    'allauth.socialaccount.providers.google',
+    'django_q',
     'music',
 ]
 
@@ -57,6 +63,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'allauth.account.middleware.AccountMiddleware',
 ]
 
 ROOT_URLCONF = 'ai_music_generator.urls'
@@ -129,6 +136,41 @@ STATIC_URL = 'static/'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/library/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+SITE_ID = 1
+
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+    'allauth.account.auth_backends.AuthenticationBackend',
+]
+
+# ── django-allauth (Google OAuth) ─────────────────────────────────────────
+ACCOUNT_LOGIN_METHODS = {'email'}
+ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
+ACCOUNT_EMAIL_VERIFICATION = 'none'
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_LOGIN_ON_GET = True
+
+SOCIALACCOUNT_PROVIDERS = {
+    'google': {
+        'SCOPE': ['profile', 'email'],
+        'AUTH_PARAMS': {'access_type': 'online'},
+        'APP': {
+            'client_id': os.environ.get('GOOGLE_CLIENT_ID', ''),
+            'secret': os.environ.get('GOOGLE_CLIENT_SECRET', ''),
+        },
+    }
+}
+
+# ── django-q2 async task queue ────────────────────────────────────────────
+Q_CLUSTER = {
+    'name': 'ai_music',
+    'workers': 2,
+    'timeout': 360,
+    'retry': 720,
+    'orm': 'default',
+    'save_limit': 250,
+}
 
 # ── Third-party music API keys (set in .env) ─────────────────────────────
 MUSIC_API_PROVIDER = os.environ.get('MUSIC_API_PROVIDER', 'mureka')  # 'mureka' or 'suno'

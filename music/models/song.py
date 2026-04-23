@@ -40,6 +40,8 @@ class Song(models.Model):
     file_url = models.URLField(blank=True)
     is_public = models.BooleanField(default=False)
     share_token = models.UUIDField(default=uuid.uuid4, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.title

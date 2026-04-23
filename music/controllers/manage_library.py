@@ -17,7 +17,7 @@ class ManageLibraryController:
     @staticmethod
     def list_tracks(user):
         """Return all songs owned by the user, newest first."""
-        return Song.objects.filter(user=user).order_by("-pk")
+        return Song.objects.filter(user=user).order_by("-created_at")
 
     @staticmethod
     def delete_track(song_id, user):

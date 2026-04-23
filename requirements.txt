@@ -1,3 +1,7 @@
 django>=5.0,<7.0
 python-dotenv>=1.0
 requests>=2.31
+django-allauth>=0.61
+django-q2>=1.6
+PyJWT>=2.8
+cryptography>=42.0
