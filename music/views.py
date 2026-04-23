@@ -9,7 +9,7 @@ from .controllers import (
     ManageLibraryController,
 )
 from .models import Library, Profile, User
-from .services import generate as api_generate
+from .services import get_strategy
 
 
 def _get_or_create_music_user(auth_user):
@@ -37,7 +37,8 @@ def generate_view(request):
     error = None
 
     if request.method == 'POST':
-        title = request.POST.get('title', '').strip()
+        title    = request.POST.get('title', '').strip()
+        provider = request.POST.get('provider', 'mureka').strip()
         if not title:
             error = 'Song name is required.'
         else:
@@ -50,9 +51,11 @@ def generate_view(request):
                     occasion=request.POST.get('occasion', '').strip(),
                     singer_style=request.POST.get('singer_style', '').strip(),
                     topic=request.POST.get('topic', '').strip(),
+                    provider=provider,
                 )
                 try:
-                    file_url = api_generate(song)
+                    strategy = get_strategy(provider)
+                    file_url = strategy.generate(song)
                     GenerateMusicController.mark_complete(song.pk, file_url=file_url)
                     return redirect('music:library')
                 except (requests.RequestException, RuntimeError, TimeoutError) as api_err:

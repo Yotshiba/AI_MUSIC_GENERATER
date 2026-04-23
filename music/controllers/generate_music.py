@@ -23,7 +23,7 @@ class GenerateMusicController:
     GENERATION_COST = 1
 
     @staticmethod
-    def request_generation(user, title, genre="", mood="", occasion="", singer_style="", topic=""):
+    def request_generation(user, title, genre="", mood="", occasion="", singer_style="", topic="", provider=""):
         """Validate tokens, create a GENERATING song record, and deduct the cost."""
         profile = get_object_or_404(Profile, user=user)
         if profile.token_balance < GenerateMusicController.GENERATION_COST:
@@ -39,6 +39,7 @@ class GenerateMusicController:
             occasion=occasion,
             singer_style=singer_style,
             topic=topic,
+            provider=provider,
             status=Song.SongStatus.GENERATING,
         )
 

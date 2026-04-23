@@ -1,15 +1,29 @@
 """
-Music API service selector.
-Set MUSIC_API_PROVIDER=mureka or suno in your .env file.
+Strategy Pattern — factory / registry for music generation providers.
+
+To add a new provider:
+  1. Create a class in a new file (e.g. music/services/udio.py) that
+     subclasses MusicGenerationStrategy and implements generate().
+  2. Add one entry to _STRATEGIES below.
 """
 
-from django.conf import settings
+from .base import MusicGenerationStrategy
+from .mureka import MurekaStrategy
+from .suno import SunoStrategy
+
+_STRATEGIES: dict[str, type[MusicGenerationStrategy]] = {
+    "mureka": MurekaStrategy,
+    "suno":   SunoStrategy,
+}
+
+AVAILABLE_PROVIDERS = list(_STRATEGIES.keys())
 
 
-def generate(song):
-    provider = getattr(settings, "MUSIC_API_PROVIDER", "mureka").lower()
-    if provider == "suno":
-        from .suno import generate as _generate
-    else:
-        from .mureka import generate as _generate
-    return _generate(song)
+def get_strategy(provider: str) -> MusicGenerationStrategy:
+    """Return an instantiated strategy for the given provider name."""
+    cls = _STRATEGIES.get(provider.lower())
+    if cls is None:
+        raise ValueError(
+            f"Unknown provider {provider!r}. Available: {AVAILABLE_PROVIDERS}"
+        )
+    return cls()

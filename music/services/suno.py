@@ -1,5 +1,5 @@
 """
-Suno AI music generation service via sunoapi.org.
+Concrete Strategy — Suno AI music generation via sunoapi.org.
 Docs: https://docs.sunoapi.org/
 """
 
@@ -8,62 +8,64 @@ import time
 import requests
 from django.conf import settings
 
-BASE_URL = getattr(settings, "SUNO_BASE_URL", "https://api.sunoapi.org")
-POLL_INTERVAL = 5   # seconds between status checks
-MAX_WAIT = 300       # 5 minutes max
+from .base import MusicGenerationStrategy
+
+_POLL_INTERVAL = 5    # seconds between status checks
+_MAX_WAIT      = 300  # 5 minutes
 
 
-def _headers():
-    return {"Authorization": f"Bearer {settings.SUNO_API_KEY}"}
+class SunoStrategy(MusicGenerationStrategy):
+    """Concrete Strategy B: generates music via the Suno unofficial API."""
 
+    @property
+    def name(self) -> str:
+        return "Suno"
 
-def generate(song):
-    """
-    Submit a generation request to Suno and poll until complete.
-    Returns the stream_audio_url string, or raises RuntimeError on failure/timeout.
-    """
-    prompt = " ".join(filter(None, [
-        song.title, song.genre, song.mood, song.occasion, song.singer_style, song.topic,
-    ]))
+    def generate(self, song) -> str:
+        base_url = getattr(settings, "SUNO_BASE_URL", "https://api.sunoapi.org")
+        headers  = {"Authorization": f"Bearer {settings.SUNO_API_KEY}"}
 
-    resp = requests.post(
-        f"{BASE_URL}/api/v1/generate",
-        headers=_headers(),
-        json={
-            "prompt": prompt[:500],
-            "customMode": False,
-            "instrumental": not bool(song.singer_style),
-            "model": "V4_5ALL",
-        },
-        timeout=30,
-    )
-    resp.raise_for_status()
-    body = resp.json()
-    task_id = body["data"]["taskId"]
+        prompt = " ".join(filter(None, [
+            song.title, song.genre, song.mood, song.occasion, song.singer_style, song.topic,
+        ]))
 
-    deadline = time.time() + MAX_WAIT
-    while time.time() < deadline:
-        time.sleep(POLL_INTERVAL)
-        poll = requests.get(
-            f"{BASE_URL}/api/v1/generate/record-info",
-            headers=_headers(),
-            params={"taskId": task_id},
-            timeout=15,
+        resp = requests.post(
+            f"{base_url}/api/v1/generate",
+            headers=headers,
+            json={
+                "prompt": prompt[:500],
+                "customMode": False,
+                "instrumental": not bool(song.singer_style),
+                "model": "V4_5ALL",
+            },
+            timeout=30,
         )
-        poll.raise_for_status()
-        data = poll.json().get("data", {})
-        status = data.get("status", "")
+        resp.raise_for_status()
+        task_id = resp.json()["data"]["taskId"]
 
-        if status in ("SUCCESS", "FIRST_SUCCESS"):
-            tracks = data.get("response", {}).get("data", [])
-            if tracks:
-                # Prefer stream_audio_url (ready in ~30s) over audio_url (~2-3 min)
-                url = tracks[0].get("stream_audio_url") or tracks[0].get("audio_url")
-                if url:
-                    return url
-            raise RuntimeError("Suno returned SUCCESS but no audio URL found.")
+        deadline = time.time() + _MAX_WAIT
+        while time.time() < deadline:
+            time.sleep(_POLL_INTERVAL)
+            poll = requests.get(
+                f"{base_url}/api/v1/generate/record-info",
+                headers=headers,
+                params={"taskId": task_id},
+                timeout=15,
+            )
+            poll.raise_for_status()
+            data   = poll.json().get("data", {})
+            status = data.get("status", "")
 
-        if status == "FAILED":
-            raise RuntimeError(f"Suno generation failed: {data}")
+            if status in ("SUCCESS", "FIRST_SUCCESS"):
+                tracks = data.get("response", {}).get("data", [])
+                if tracks:
+                    # Prefer stream_audio_url (ready ~30 s) over audio_url (~2-3 min)
+                    url = tracks[0].get("stream_audio_url") or tracks[0].get("audio_url")
+                    if url:
+                        return url
+                raise RuntimeError("Suno returned SUCCESS but no audio URL found.")
 
-    raise TimeoutError("Suno generation timed out after 5 minutes.")
+            if status == "FAILED":
+                raise RuntimeError(f"Suno generation failed: {data}")
+
+        raise TimeoutError("Suno generation timed out after 5 minutes.")

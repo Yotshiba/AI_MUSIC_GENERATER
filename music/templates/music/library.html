@@ -22,6 +22,12 @@
       <tr>
         <td>
           <strong>{{ track.title }}</strong>
+          {% if track.provider %}
+            <span style="font-size:0.72rem; background:#2e2e42; color:#a78bfa;
+                         padding:0.1rem 0.45rem; border-radius:999px; margin-left:0.35rem;">
+              {{ track.provider }}
+            </span>
+          {% endif %}
           {% if track.is_public %}
             <div class="share-url">
               /listen/{{ track.share_token }}/
