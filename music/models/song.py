@@ -36,6 +36,7 @@ class Song(models.Model):
         choices=SongStatus.choices,
         default=SongStatus.DRAFT,
     )
+    file_url = models.URLField(blank=True)
     is_public = models.BooleanField(default=False)
     share_token = models.UUIDField(default=uuid.uuid4, unique=True)
 

@@ -53,11 +53,12 @@ class GenerateMusicController:
         return song
 
     @staticmethod
-    def mark_complete(song_id):
-        """Mark a song COMPLETED after the background task succeeds."""
+    def mark_complete(song_id, file_url=""):
+        """Mark a song COMPLETED and store the audio URL returned by the API."""
         song = get_object_or_404(Song, pk=song_id)
         song.status = Song.SongStatus.COMPLETED
-        song.save(update_fields=["status"])
+        song.file_url = file_url
+        song.save(update_fields=["status", "file_url"])
         return song
 
     @staticmethod

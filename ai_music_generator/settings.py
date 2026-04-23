@@ -131,5 +131,7 @@ LOGIN_REDIRECT_URL = '/library/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
 
 # ── Third-party music API keys (set in .env) ─────────────────────────────
-SUNO_API_KEY   = os.environ.get('SUNO_API_KEY', '')
-MUREKA_API_KEY = os.environ.get('MUREKA_API_KEY', '')
+MUSIC_API_PROVIDER = os.environ.get('MUSIC_API_PROVIDER', 'mureka')  # 'mureka' or 'suno'
+SUNO_API_KEY       = os.environ.get('SUNO_API_KEY', '')
+SUNO_BASE_URL      = os.environ.get('SUNO_BASE_URL', 'https://api.sunoapi.org')
+MUREKA_API_KEY     = os.environ.get('MUREKA_API_KEY', '')

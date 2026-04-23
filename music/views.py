@@ -1,3 +1,4 @@
+import requests
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
@@ -8,6 +9,7 @@ from .controllers import (
     ManageLibraryController,
 )
 from .models import Library, Profile, User
+from .services import generate as api_generate
 
 
 def _get_or_create_music_user(auth_user):
@@ -49,9 +51,14 @@ def generate_view(request):
                     singer_style=request.POST.get('singer_style', '').strip(),
                     topic=request.POST.get('topic', '').strip(),
                 )
-                # TODO: replace with Celery async task when background worker is added
-                GenerateMusicController.mark_complete(song.pk)
-                return redirect('music:library')
+                try:
+                    file_url = api_generate(song)
+                    GenerateMusicController.mark_complete(song.pk, file_url=file_url)
+                    return redirect('music:library')
+                except (requests.RequestException, RuntimeError, TimeoutError) as api_err:
+                    GenerateMusicController.mark_failed(song.pk)
+                    profile.refresh_from_db()
+                    error = f'Generation failed: {api_err}'
             except InsufficientTokensError as exc:
                 error = str(exc)
                 profile.refresh_from_db()
