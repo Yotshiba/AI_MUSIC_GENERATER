@@ -1,0 +1,44 @@
+{% extends "music/base.html" %}
+{% block title %}Generate Music — AI Music{% endblock %}
+
+{% block content %}
+<h1>Generate a Track</h1>
+<div class="card">
+  {% if error %}
+    <div class="alert-error">{{ error }}</div>
+  {% endif %}
+
+  <form method="post">
+    {% csrf_token %}
+
+    <label for="title">Song Name *</label>
+    <input type="text" id="title" name="title" placeholder="e.g. Sukhumvit Rain" required
+           value="{{ request.POST.title|default:'' }}">
+
+    <label for="genre">Genre</label>
+    <input type="text" id="genre" name="genre" placeholder="e.g. Lo-Fi / Chill-hop"
+           value="{{ request.POST.genre|default:'' }}">
+
+    <label for="mood">Mood</label>
+    <input type="text" id="mood" name="mood" placeholder="e.g. Melancholic but cozy"
+           value="{{ request.POST.mood|default:'' }}">
+
+    <label for="occasion">Occasion</label>
+    <input type="text" id="occasion" name="occasion" placeholder="e.g. Vlog Background"
+           value="{{ request.POST.occasion|default:'' }}">
+
+    <label for="singer_style">Singer Style</label>
+    <input type="text" id="singer_style" name="singer_style" placeholder="e.g. Instrumental, Female Vocal"
+           value="{{ request.POST.singer_style|default:'' }}">
+
+    <label for="topic">Topic / Theme</label>
+    <input type="text" id="topic" name="topic" placeholder="e.g. Rainy afternoon coffee shop"
+           value="{{ request.POST.topic|default:'' }}">
+
+    <div style="margin-top:1.5rem; display:flex; align-items:center; gap:1rem;">
+      <button type="submit" class="btn btn-primary">Generate Track (costs 1 token)</button>
+      <span style="font-size:0.85rem; color:#6b6b8a;">Balance: {{ profile.token_balance }} tokens</span>
+    </div>
+  </form>
+</div>
+{% endblock %}

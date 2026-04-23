@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login — AI Music Generator</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif; background: #0f0f13; color: #e8e8f0;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .login-card {
+      background: #1a1a24; border: 1px solid #2e2e42; border-radius: 16px;
+      padding: 2.5rem 3rem; max-width: 400px; width: 90%;
+    }
+    .brand { font-size: 1.4rem; font-weight: 700; color: #a78bfa; margin-bottom: 0.25rem; }
+    .subtitle { font-size: 0.85rem; color: #6b6b8a; margin-bottom: 2rem; }
+    .alert-error {
+      background: #3b1c1c; border: 1px solid #7f1d1d; color: #fca5a5;
+      border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.85rem;
+    }
+    label { display: block; font-size: 0.85rem; color: #a0a0b8; margin-bottom: 0.3rem; margin-top: 1rem; }
+    input[type=text], input[type=password] {
+      width: 100%; padding: 0.6rem 0.75rem; border-radius: 7px;
+      border: 1px solid #2e2e42; background: #0f0f18; color: #e8e8f0; font-size: 0.95rem;
+    }
+    input:focus { outline: none; border-color: #7c3aed; }
+    button[type=submit] {
+      margin-top: 1.5rem; width: 100%; padding: 0.65rem;
+      background: #7c3aed; color: #fff; border: none; border-radius: 7px;
+      font-size: 0.95rem; font-weight: 600; cursor: pointer;
+    }
+    button[type=submit]:hover { background: #6d28d9; }
+    .hint { margin-top: 1.25rem; font-size: 0.78rem; color: #3a3a54; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="brand">AI Music Generator</div>
+    <div class="subtitle">Sign in to generate and manage your tracks</div>
+
+    {% if form.errors %}
+      <div class="alert-error">Invalid username or password. Please try again.</div>
+    {% endif %}
+
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ next }}">
+
+      <label for="id_username">Username</label>
+      <input type="text" id="id_username" name="username" autofocus autocomplete="username">
+
+      <label for="id_password">Password</label>
+      <input type="password" id="id_password" name="password" autocomplete="current-password">
+
+      <button type="submit">Sign In</button>
+    </form>
+
+    <p class="hint">Use <code>python manage.py createsuperuser</code> to create an account.</p>
+  </div>
+</body>
+</html>

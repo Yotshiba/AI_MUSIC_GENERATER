@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}AI Music Generator{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #0f0f13; color: #e8e8f0; min-height: 100vh; }
+    nav {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0.75rem 2rem; background: #1a1a24; border-bottom: 1px solid #2e2e42;
+    }
+    nav .brand { font-weight: 700; font-size: 1.1rem; color: #a78bfa; text-decoration: none; }
+    nav a { color: #c4b5fd; text-decoration: none; font-size: 0.9rem; }
+    nav a:hover { color: #fff; }
+    nav .spacer { flex: 1; }
+    nav .token-badge {
+      background: #2e2e42; border-radius: 999px; padding: 0.25rem 0.75rem;
+      font-size: 0.8rem; color: #a78bfa;
+    }
+    nav .btn-nav {
+      background: #7c3aed; color: #fff; padding: 0.35rem 0.9rem;
+      border-radius: 6px; font-size: 0.85rem; text-decoration: none;
+    }
+    nav .btn-nav:hover { background: #6d28d9; color: #fff; }
+    main { max-width: 860px; margin: 2rem auto; padding: 0 1.5rem; }
+    .card {
+      background: #1a1a24; border: 1px solid #2e2e42;
+      border-radius: 12px; padding: 1.5rem 2rem; margin-bottom: 1.5rem;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 1rem; color: #e8e8f0; }
+    h2 { font-size: 1.1rem; margin-bottom: 0.75rem; color: #c4b5fd; }
+    .alert-error {
+      background: #3b1c1c; border: 1px solid #7f1d1d; color: #fca5a5;
+      border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.9rem;
+    }
+    label { display: block; font-size: 0.85rem; color: #a0a0b8; margin-bottom: 0.3rem; margin-top: 0.9rem; }
+    input[type=text], input[type=password], select, textarea {
+      width: 100%; padding: 0.55rem 0.75rem; border-radius: 7px;
+      border: 1px solid #2e2e42; background: #0f0f18; color: #e8e8f0;
+      font-size: 0.95rem;
+    }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: #7c3aed; }
+    .btn {
+      display: inline-block; padding: 0.55rem 1.25rem; border-radius: 7px;
+      border: none; cursor: pointer; font-size: 0.9rem; font-weight: 600;
+    }
+    .btn-primary { background: #7c3aed; color: #fff; }
+    .btn-primary:hover { background: #6d28d9; }
+    .btn-danger { background: #7f1d1d; color: #fca5a5; }
+    .btn-danger:hover { background: #991b1b; }
+    .btn-secondary { background: #2e2e42; color: #c4b5fd; }
+    .btn-secondary:hover { background: #3a3a54; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    th { text-align: left; padding: 0.5rem 0.75rem; color: #a0a0b8; font-weight: 600;
+         border-bottom: 1px solid #2e2e42; }
+    td { padding: 0.65rem 0.75rem; border-bottom: 1px solid #1e1e2e; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    .badge-public  { background: #14532d; color: #86efac; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+    .badge-private { background: #1e293b; color: #94a3b8; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+    .share-url { font-size: 0.75rem; color: #7c3aed; word-break: break-all; }
+    .empty-state { text-align: center; padding: 3rem 0; color: #6b6b8a; }
+    .empty-state a { color: #a78bfa; }
+  </style>
+</head>
+<body>
+{% if user.is_authenticated %}
+<nav>
+  <a class="brand" href="{% url 'music:library' %}">AI Music</a>
+  <a href="{% url 'music:library' %}">Library</a>
+  <a class="btn-nav" href="{% url 'music:generate' %}">+ Generate</a>
+  <span class="spacer"></span>
+  <span class="token-badge">{{ profile.token_balance }} tokens</span>
+  <span style="font-size:0.85rem; color:#6b6b8a;">{{ user.username }}</span>
+  <form method="post" action="{% url 'logout' %}" style="display:inline">
+    {% csrf_token %}
+    <button type="submit" style="background:none;border:none;color:#6b6b8a;cursor:pointer;font-size:0.85rem;">Logout</button>
+  </form>
+</nav>
+{% endif %}
+<main>
+  {% block content %}{% endblock %}
+</main>
+</body>
+</html>

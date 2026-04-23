@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ song.title }} — AI Music</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, sans-serif; background: #0f0f13; color: #e8e8f0;
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    }
+    .player-card {
+      background: #1a1a24; border: 1px solid #2e2e42; border-radius: 16px;
+      padding: 2.5rem 3rem; max-width: 480px; width: 90%; text-align: center;
+    }
+    .track-title { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.4rem; }
+    .track-meta  { font-size: 0.9rem; color: #6b6b8a; margin-bottom: 1.5rem; }
+    audio { width: 100%; margin-bottom: 1.5rem; accent-color: #7c3aed; }
+    .tag {
+      display: inline-block; background: #2e2e42; color: #c4b5fd;
+      border-radius: 999px; padding: 0.2rem 0.65rem; font-size: 0.78rem; margin: 0.2rem;
+    }
+    .footer-note { margin-top: 2rem; font-size: 0.75rem; color: #3a3a54; }
+  </style>
+</head>
+<body>
+  <div class="player-card">
+    <div class="track-title">{{ song.title }}</div>
+    <div class="track-meta">Shared track &mdash; listen only</div>
+
+    <audio controls>
+      {% if song.file_url %}<source src="{{ song.file_url }}">{% endif %}
+      Your browser does not support the audio element.
+    </audio>
+
+    <div>
+      {% if song.genre %}<span class="tag">{{ song.genre }}</span>{% endif %}
+      {% if song.mood %}<span class="tag">{{ song.mood }}</span>{% endif %}
+      {% if song.occasion %}<span class="tag">{{ song.occasion }}</span>{% endif %}
+    </div>
+
+    <p class="footer-note">AI Music Generator &mdash; public listen page</p>
+  </div>
+</body>
+</html>
