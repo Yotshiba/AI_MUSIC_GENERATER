@@ -37,6 +37,7 @@ class SunoStrategy(MusicGenerationStrategy):
                 "customMode": False,
                 "instrumental": not bool(song.singer_style),
                 "model": "V4_5ALL",
+                "callBackUrl": "https://example.com/callback",
             },
             timeout=30,
         )
@@ -63,10 +64,10 @@ class SunoStrategy(MusicGenerationStrategy):
             status    = data.get("status", "")
 
             if status in ("SUCCESS", "FIRST_SUCCESS"):
-                tracks = data.get("response", {}).get("data", [])
+                tracks = data.get("response", {}).get("sunoData", [])
                 if tracks:
-                    # Prefer stream_audio_url (ready ~30 s) over audio_url (~2-3 min)
-                    url = tracks[0].get("stream_audio_url") or tracks[0].get("audio_url")
+                    # Prefer streamAudioUrl (ready ~30 s) over audioUrl (~2-3 min)
+                    url = tracks[0].get("streamAudioUrl") or tracks[0].get("audioUrl")
                     if url:
                         return url
                 raise RuntimeError("Suno returned SUCCESS but no audio URL found.")

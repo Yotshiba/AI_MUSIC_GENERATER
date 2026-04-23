@@ -28,7 +28,11 @@ class MurekaStrategy(MusicGenerationStrategy):
         resp = requests.post(
             f"{_BASE_URL}/v1/song/generate",
             headers={"Authorization": f"Bearer {settings.MUREKA_API_KEY}"},
-            json={"prompt": prompt, "model": "auto"},
+            json={
+                "prompt": prompt,
+                "model": "auto",
+                "lyrics": song.topic or "[instrumental]",
+            },
             timeout=30,
         )
         resp.raise_for_status()
