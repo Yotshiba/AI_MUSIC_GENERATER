@@ -173,6 +173,12 @@ Q_CLUSTER = {
 
 # ── Third-party music API keys (set in .env) ─────────────────────────────
 MUSIC_API_PROVIDER = os.environ.get('MUSIC_API_PROVIDER', 'mureka')  # 'mureka' or 'suno'
+
+# Override ALL generation to a specific strategy regardless of per-request provider.
+# Set to 'mock' for offline dev/testing, 'suno' or 'mureka' to force a provider,
+# or leave empty ('') to use whatever the user selects in the form.
+GENERATOR_STRATEGY = os.environ.get('GENERATOR_STRATEGY', '').lower().strip()
+
 SUNO_API_KEY       = os.environ.get('SUNO_API_KEY', '')
 SUNO_BASE_URL      = os.environ.get('SUNO_BASE_URL', 'https://api.sunoapi.org')
 MUREKA_API_KEY     = os.environ.get('MUREKA_API_KEY', '')

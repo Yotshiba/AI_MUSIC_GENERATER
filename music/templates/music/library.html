@@ -56,7 +56,14 @@
             <span class="badge-failed" style="margin-left:0.35rem;">Failed</span>
           {% endif %}
           {% if track.is_public %}
-            <div class="share-url">/listen/{{ track.share_token }}/</div>
+            <div class="share-url">
+              /listen/{{ track.share_token }}/
+              <button class="copy-link-btn btn btn-secondary"
+                      data-url="{{ request.scheme }}://{{ request.get_host }}/listen/{{ track.share_token }}/"
+                      style="padding:0.1rem 0.45rem; font-size:0.7rem; margin-left:0.35rem;">
+                Copy Link
+              </button>
+            </div>
           {% endif %}
         </td>
         <td>{{ track.genre|default:"—" }}</td>

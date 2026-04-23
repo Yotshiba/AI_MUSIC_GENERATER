@@ -99,7 +99,89 @@ Copy `.env.example` to `.env` and fill in your values:
 
 ---
 
-## Architecture
+## Exercise 4 — Strategy Pattern (Mock vs Suno API)
+
+### Strategy Interface
+
+Defined in `music/services/base.py`:
+
+```python
+class MusicGenerationStrategy(ABC):
+    @property
+    @abstractmethod
+    def name(self) -> str: ...
+
+    @abstractmethod
+    def generate(self, song) -> str:
+        """Submit parameters, poll until complete, return audio URL."""
+```
+
+### Available Strategies
+
+| Key | Class | File | Description |
+|-----|-------|------|-------------|
+| `mock` | `MockSongGeneratorStrategy` | `music/services/mock.py` | Offline, deterministic — returns a fixed audio URL after a 2 s delay. No API key needed. |
+| `suno` | `SunoStrategy` | `music/services/suno.py` | Calls `api.sunoapi.org` — POST to generate, polls `record-info` until `SUCCESS`. |
+| `mureka` | `MurekaStrategy` | `music/services/mureka.py` | Calls `api.mureka.ai` — POST to generate, polls `song/query/{id}` until `complete`. |
+
+Strategy selection is **centralized** in `music/services/__init__.py → get_strategy()`.
+
+### Running in Mock Mode (offline, no API key)
+
+Set `GENERATOR_STRATEGY=mock` in your `.env`:
+
+```
+GENERATOR_STRATEGY=mock
+```
+
+Then start normally:
+
+```bash
+python manage.py runserver   # Terminal 1
+python manage.py qcluster    # Terminal 2
+```
+
+Submit any generation form — the background worker will return a fixed sample MP3 in ~2 seconds. No API key is required.
+
+### Running in Suno Mode
+
+Set `GENERATOR_STRATEGY=suno` (or leave it empty and pick "Suno" in the form):
+
+```
+GENERATOR_STRATEGY=suno
+SUNO_API_KEY=your-suno-api-key-here
+SUNO_BASE_URL=https://api.sunoapi.org
+```
+
+The Suno strategy:
+1. POSTs to `/api/v1/generate` with `Authorization: Bearer <token>`
+2. Extracts the returned `taskId`
+3. Polls `GET /api/v1/generate/record-info?taskId=...` every 5 seconds
+4. Returns the `streamAudioUrl` once status is `SUCCESS` or `FIRST_SUCCESS`
+
+### Where to put the Suno API key
+
+**Never commit your key.** Store it only in `.env` (which is git-ignored):
+
+```
+SUNO_API_KEY=sk-...your-key-here...
+```
+
+Get your key from [sunoapi.org](https://sunoapi.org).
+
+### Strategy Selection Logic
+
+`GENERATOR_STRATEGY` in `.env` overrides the per-request provider globally:
+
+```
+GENERATOR_STRATEGY=mock    # All generation uses Mock (offline)
+GENERATOR_STRATEGY=suno    # All generation uses Suno regardless of form
+GENERATOR_STRATEGY=        # (empty) User's form choice is used
+```
+
+---
+
+
 
 ```
 ai_music_generator/          # Django project config

@@ -36,10 +36,10 @@
            value="{{ request.POST.topic|default:'' }}">
 
     <label style="margin-top:1.25rem;">AI Provider</label>
-    <div style="display:flex; gap:1.25rem; margin-top:0.4rem;">
+    <div style="display:flex; gap:1.25rem; margin-top:0.4rem; flex-wrap:wrap;">
       <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
         <input type="radio" name="provider" value="mureka"
-               {% if request.POST.provider != 'suno' %}checked{% endif %}>
+               {% if not request.POST.provider or request.POST.provider == 'mureka' %}checked{% endif %}>
         <span>
           <strong>Mureka</strong>
           <small style="color:#6b6b8a; display:block;">Official API &mdash; ~45 sec</small>
@@ -51,6 +51,14 @@
         <span>
           <strong>Suno</strong>
           <small style="color:#6b6b8a; display:block;">Unofficial API &mdash; ~30-60 sec</small>
+        </span>
+      </label>
+      <label style="display:flex; align-items:center; gap:0.5rem; cursor:pointer;">
+        <input type="radio" name="provider" value="mock"
+               {% if request.POST.provider == 'mock' %}checked{% endif %}>
+        <span>
+          <strong>Mock</strong>
+          <small style="color:#6b6b8a; display:block;">Offline demo &mdash; ~2 sec</small>
         </span>
       </label>
     </div>

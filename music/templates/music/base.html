@@ -347,9 +347,10 @@
   var mpTitle  = document.getElementById('mp-title');
   var mpClose  = document.getElementById('mp-close');
 
-  function showPlayer(url, title, startTime, paused) {
+  function showPlayer(url, title, startTime, paused, volume) {
     mpTitle.textContent = title;
     if (audio.src !== url) { audio.src = url; }
+    if (volume !== undefined) { audio.volume = volume; }
     player.style.display = 'flex';
     if (startTime && audio.readyState >= 1) { audio.currentTime = startTime; }
     else if (startTime) {
@@ -365,13 +366,13 @@
     if (!audio.src || audio.src === window.location.href) return;
     localStorage.setItem(MP_KEY, JSON.stringify({
       url: audio.src, title: mpTitle.textContent,
-      time: audio.currentTime, paused: audio.paused
+      time: audio.currentTime, paused: audio.paused, volume: audio.volume
     }));
   }
 
   var saved = null;
   try { saved = JSON.parse(localStorage.getItem(MP_KEY)); } catch(e) {}
-  if (saved && saved.url) { showPlayer(saved.url, saved.title, saved.time, saved.paused); }
+  if (saved && saved.url) { showPlayer(saved.url, saved.title, saved.time, saved.paused, saved.volume); }
 
   window.addEventListener('beforeunload', saveState);
   audio.addEventListener('timeupdate', function() {
@@ -414,6 +415,29 @@
       errToast.style.opacity = '0';
       setTimeout(function() { errToast.remove(); }, 420);
     }, 4000);
+  });
+
+  /* ── Copy Share Link ─────────────────────────────────────────── */
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('.copy-link-btn');
+    if (!btn) return;
+    var url = btn.dataset.url;
+    navigator.clipboard.writeText(url).then(function() {
+      var orig = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      setTimeout(function() { btn.textContent = orig; }, 2000);
+    }).catch(function() {
+      /* fallback for non-HTTPS */
+      var ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.textContent = '✓ Copied!';
+      setTimeout(function() { btn.textContent = 'Copy Link'; }, 2000);
+    });
   });
 
   /* ── Delete Confirmation Modal ────────────────────────────────── */
