@@ -36,8 +36,8 @@ class ManageLibraryController:
     def toggle_privacy(song_id, user):
         """Toggle a track's public/private status; returns the updated song."""
         song = get_object_or_404(Song, pk=song_id, user=user)
-        song.is_public = not song.is_public
-        song.save(update_fields=["is_public"])
+        # Information Expert: Song owns its own privacy state.
+        song.toggle_privacy()
         return song
 
     @staticmethod

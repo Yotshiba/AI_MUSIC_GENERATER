@@ -182,3 +182,29 @@ GENERATOR_STRATEGY = os.environ.get('GENERATOR_STRATEGY', '').lower().strip()
 SUNO_API_KEY       = os.environ.get('SUNO_API_KEY', '')
 SUNO_BASE_URL      = os.environ.get('SUNO_BASE_URL', 'https://api.sunoapi.org')
 MUREKA_API_KEY     = os.environ.get('MUREKA_API_KEY', '')
+
+# ── Logging ───────────────────────────────────────────────────────────────
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{levelname}] {asctime} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'music': {
+            'handlers': ['console'],
+            'level': 'DEBUG' if DEBUG else 'INFO',
+            'propagate': False,
+        },
+    },
+}
+

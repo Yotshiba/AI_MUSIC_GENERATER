@@ -3,12 +3,15 @@ Concrete Strategy — Suno AI music generation via sunoapi.org.
 Docs: https://docs.sunoapi.org/
 """
 
-import time
+import logging
 
 import requests
 from django.conf import settings
 
 from .base import MusicGenerationStrategy
+from .utils import poll_until
+
+logger = logging.getLogger("music")
 
 _POLL_INTERVAL = 5    # seconds between status checks
 _MAX_WAIT      = 300  # 5 minutes
@@ -49,30 +52,36 @@ class SunoStrategy(MusicGenerationStrategy):
             )
         task_id = body["data"]["taskId"]
 
-        deadline = time.time() + _MAX_WAIT
-        while time.time() < deadline:
-            time.sleep(_POLL_INTERVAL)
-            poll = requests.get(
+        def fetch():
+            r = requests.get(
                 f"{base_url}/api/v1/generate/record-info",
                 headers=headers,
                 params={"taskId": task_id},
                 timeout=15,
             )
-            poll.raise_for_status()
-            poll_body = poll.json()
-            data      = poll_body.get("data") or {}
-            status    = data.get("status", "")
+            r.raise_for_status()
+            return r.json().get("data") or {}
 
-            if status in ("SUCCESS", "FIRST_SUCCESS"):
-                tracks = data.get("response", {}).get("sunoData", [])
-                if tracks:
-                    # Prefer streamAudioUrl (ready ~30 s) over audioUrl (~2-3 min)
-                    url = tracks[0].get("streamAudioUrl") or tracks[0].get("audioUrl")
-                    if url:
-                        return url
-                raise RuntimeError("Suno returned SUCCESS but no audio URL found.")
+        def is_done(data):
+            return data.get("status") in ("SUCCESS", "FIRST_SUCCESS")
 
-            if status == "FAILED":
-                raise RuntimeError(f"Suno generation failed: {data}")
+        def has_failed(data):
+            return data.get("status") == "FAILED"
 
-        raise TimeoutError("Suno generation timed out after 5 minutes.")
+        def get_result(data):
+            tracks = data.get("response", {}).get("sunoData", [])
+            if tracks:
+                # Prefer streamAudioUrl (ready ~30 s) over audioUrl (~2-3 min)
+                return tracks[0].get("streamAudioUrl") or tracks[0].get("audioUrl") or ""
+            return ""
+
+        return poll_until(
+            fetch=fetch,
+            is_done=is_done,
+            has_failed=has_failed,
+            get_result=get_result,
+            task_id=task_id,
+            timeout=_MAX_WAIT,
+            interval=_POLL_INTERVAL,
+        )
+

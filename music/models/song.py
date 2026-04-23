@@ -45,3 +45,21 @@ class Song(models.Model):
 
     def __str__(self):
         return self.title
+
+    # ── Information Expert: status transitions owned by Song ──────────────
+
+    def mark_complete(self, file_url: str) -> None:
+        """Transition to COMPLETED and store the audio URL."""
+        self.status = self.SongStatus.COMPLETED
+        self.file_url = file_url
+        self.save(update_fields=["status", "file_url"])
+
+    def mark_failed(self) -> None:
+        """Transition to FAILED."""
+        self.status = self.SongStatus.FAILED
+        self.save(update_fields=["status"])
+
+    def toggle_privacy(self) -> None:
+        """Flip the public/private flag."""
+        self.is_public = not self.is_public
+        self.save(update_fields=["is_public"])

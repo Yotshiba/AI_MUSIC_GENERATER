@@ -183,7 +183,7 @@ class SunoStrategyTests(TestCase):
         strategy = SunoStrategy()
         self.assertEqual(strategy.name, 'Suno')
 
-    @patch('music.services.suno.time.sleep', return_value=None)
+    @patch('music.services.utils.time.sleep', return_value=None)
     @patch('music.services.suno.requests.get')
     @patch('music.services.suno.requests.post')
     def test_suno_generate_full_flow(self, mock_post, mock_get, mock_sleep):
@@ -222,7 +222,7 @@ class SunoStrategyTests(TestCase):
         # 4. Verify final result is the audio URL
         self.assertEqual(result, audio_url)
 
-    @patch('music.services.suno.time.sleep', return_value=None)
+    @patch('music.services.utils.time.sleep', return_value=None)
     @patch('music.services.suno.requests.get')
     @patch('music.services.suno.requests.post')
     def test_suno_creates_task_id_on_submit(self, mock_post, mock_get, mock_sleep):
@@ -243,7 +243,7 @@ class SunoStrategyTests(TestCase):
         self.assertEqual(get_kwargs['params']['taskId'], task_id,
             msg=f"Suno must pass the taskId ({task_id!r}) when polling record-info")
 
-    @patch('music.services.suno.time.sleep', return_value=None)
+    @patch('music.services.utils.time.sleep', return_value=None)
     @patch('music.services.suno.requests.get')
     @patch('music.services.suno.requests.post')
     def test_suno_polls_until_success(self, mock_post, mock_get, mock_sleep):
@@ -270,7 +270,7 @@ class SunoStrategyTests(TestCase):
         self.assertEqual(mock_get.call_count, 3,
             msg="Suno should poll exactly 3 times: 2 PENDING + 1 SUCCESS")
 
-    @patch('music.services.suno.time.sleep', return_value=None)
+    @patch('music.services.utils.time.sleep', return_value=None)
     @patch('music.services.suno.requests.get')
     @patch('music.services.suno.requests.post')
     def test_suno_raises_on_failed_status(self, mock_post, mock_get, mock_sleep):

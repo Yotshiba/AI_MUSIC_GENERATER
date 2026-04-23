@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -8,25 +9,27 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from django_q.tasks import async_task
 
 from .controllers import (
     GenerateMusicController,
     InsufficientTokensError,
     ManageLibraryController,
+    ProfanityError,
 )
 from .models import Library, Profile, Song, User
-from .profanity import contains_profanity
+
+logger = logging.getLogger("music")
 
 
 def _get_or_create_music_user(auth_user):
-    """Bridge Django auth.User to music.User, provisioning on first login."""
-    music_user, created = User.objects.get_or_create(
+    """Bridge Django auth.User to music.User, provisioning on first login.
+    Profile and Library are created automatically via post_save signal (signals.py).
+    """
+    music_user, _ = User.objects.get_or_create(
         email=auth_user.email,
         defaults={'name': auth_user.get_full_name() or auth_user.username or auth_user.email, 'role': User.UserRole.CREATOR},
     )
-    if created:
-        Profile.objects.create(user=music_user, token_balance=10)
-        Library.objects.create(user=music_user)
     return music_user
 
 
@@ -53,8 +56,6 @@ def generate_view(request):
 
         if not title:
             error = 'Song name is required.'
-        elif any(contains_profanity(f) for f in [title, mood, topic, genre]):
-            error = 'Your input contains inappropriate language. Please revise to comply with platform safety guidelines.'
         else:
             try:
                 song = GenerateMusicController.request_generation(
@@ -67,10 +68,11 @@ def generate_view(request):
                     topic=topic,
                     provider=provider,
                 )
-                from django_q.tasks import async_task
                 async_task('music.tasks.generate_music_task', song.pk, provider)
                 messages.success(request, f'"{title}" is being generated. You can navigate freely while it processes.')
                 return redirect('music:library')
+            except ProfanityError as exc:
+                error = str(exc)
             except InsufficientTokensError as exc:
                 error = str(exc)
                 profile.refresh_from_db()
@@ -117,7 +119,8 @@ def delete_track_view(request, song_id):
     try:
         ManageLibraryController.delete_track(song_id, music_user)
         messages.success(request, f'"{track_title}" has been deleted.')
-    except Exception:
+    except Exception as exc:
+        logger.warning("Could not delete song %s for user %s: %s", song_id, music_user, exc)
         messages.error(request, f'Could not delete "{track_title}". Please try again.')
     return redirect('music:library')
 
@@ -151,7 +154,8 @@ def download_track_view(request, song_id):
         response = HttpResponse(resp.content, content_type=content_type)
         response['Content-Disposition'] = f'attachment; filename="{safe_title}.mp3"'
         return response
-    except Exception:
+    except Exception as exc:
+        logger.warning("Could not download track %s: %s", song_id, exc)
         messages.error(request, 'Could not download the track. The audio file may be unavailable.')
         return redirect('music:library')
 

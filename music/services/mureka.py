@@ -3,12 +3,15 @@ Concrete Strategy — Mureka AI music generation.
 Docs: https://platform.mureka.ai/docs/
 """
 
-import time
+import logging
 
 import requests
 from django.conf import settings
 
 from .base import MusicGenerationStrategy
+from .utils import poll_until
+
+logger = logging.getLogger("music")
 
 _BASE_URL      = "https://api.mureka.ai"
 _POLL_INTERVAL = 5    # seconds between status checks
@@ -38,25 +41,32 @@ class MurekaStrategy(MusicGenerationStrategy):
         resp.raise_for_status()
         task_id = resp.json()["id"]
 
-        deadline = time.time() + _MAX_WAIT
-        while time.time() < deadline:
-            time.sleep(_POLL_INTERVAL)
-            poll = requests.get(
+        def fetch():
+            r = requests.get(
                 f"{_BASE_URL}/v1/song/query/{task_id}",
                 headers={"Authorization": f"Bearer {settings.MUREKA_API_KEY}"},
                 timeout=15,
             )
-            poll.raise_for_status()
-            data = poll.json()
-            state = data.get("state", "")
+            r.raise_for_status()
+            return r.json()
 
-            if state == "complete":
-                songs = data.get("songs", [])
-                if songs and songs[0].get("mp3_url"):
-                    return songs[0]["mp3_url"]
-                raise RuntimeError("Mureka returned complete state but no mp3_url.")
+        def is_done(data):
+            return data.get("state") == "complete"
 
-            if state == "failed":
-                raise RuntimeError(f"Mureka generation failed: {data}")
+        def has_failed(data):
+            return data.get("state") == "failed"
 
-        raise TimeoutError("Mureka generation timed out after 5 minutes.")
+        def get_result(data):
+            songs = data.get("songs", [])
+            return songs[0].get("mp3_url", "") if songs else ""
+
+        return poll_until(
+            fetch=fetch,
+            is_done=is_done,
+            has_failed=has_failed,
+            get_result=get_result,
+            task_id=task_id,
+            timeout=_MAX_WAIT,
+            interval=_POLL_INTERVAL,
+        )
+

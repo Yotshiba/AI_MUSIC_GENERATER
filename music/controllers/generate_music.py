@@ -7,13 +7,18 @@ Business rules encoded here (from SRS Appendix D, §10.2):
 - REQ-4.3.7: Refund tokens when generation fails or times out.
 """
 
-from django.db.models import F
+import logging
+
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 
-from ..models import GenerationLog, Profile, Song, TokenRecord
+from ..models import GenerationLog, InsufficientTokensError, Profile, Song
+from ..profanity import contains_profanity
+
+logger = logging.getLogger("music")
 
 
-class InsufficientTokensError(Exception):
+class ProfanityError(Exception):
     pass
 
 
@@ -23,13 +28,20 @@ class GenerateMusicController:
     GENERATION_COST = 1
 
     @staticmethod
+    @transaction.atomic
     def request_generation(user, title, genre="", mood="", occasion="", singer_style="", topic="", provider=""):
-        """Validate tokens, create a GENERATING song record, and deduct the cost."""
-        profile = get_object_or_404(Profile, user=user)
-        if profile.token_balance < GenerateMusicController.GENERATION_COST:
-            raise InsufficientTokensError(
-                "Insufficient credits. Please contact the Administrator."
+        """Validate input, deduct tokens, create a GENERATING song record."""
+        # Controller GRASP: validation is part of this use case, not the view.
+        if any(contains_profanity(f) for f in [title, mood, topic, genre]):
+            raise ProfanityError(
+                "Your input contains inappropriate language. "
+                "Please revise to comply with platform safety guidelines."
             )
+
+        profile = get_object_or_404(Profile, user=user)
+
+        # Information Expert: Profile knows whether it can afford the cost.
+        profile.deduct(GenerateMusicController.GENERATION_COST)
 
         song = Song.objects.create(
             user=user,
@@ -56,46 +68,29 @@ class GenerateMusicController:
             status=GenerationLog.Status.SUCCESS,
         )
 
-        profile.token_balance -= GenerateMusicController.GENERATION_COST
-        profile.save(update_fields=["token_balance"])
-        TokenRecord.objects.create(
-            user=user,
-            amount=GenerateMusicController.GENERATION_COST,
-            type=TokenRecord.TokenType.SPENT,
-        )
-
         return song
 
     @staticmethod
     def mark_complete(song_id, file_url=""):
         """Mark a song COMPLETED and store the audio URL returned by the API."""
         song = get_object_or_404(Song, pk=song_id)
-        song.status = Song.SongStatus.COMPLETED
-        song.file_url = file_url
-        song.save(update_fields=["status", "file_url"])
+        # Information Expert: Song owns its own state transition.
+        song.mark_complete(file_url)
         return song
 
     @staticmethod
+    @transaction.atomic
     def mark_failed(song_id):
         """Mark a song FAILED and refund the token cost to the owner."""
         song = get_object_or_404(Song, pk=song_id)
-        song.status = Song.SongStatus.FAILED
-        song.save(update_fields=["status"])
+        # Information Expert: Song owns its own state transition.
+        song.mark_failed()
 
         GenerationLog.objects.filter(song_id=song_id).update(status=GenerationLog.Status.FAILED)
 
-        Profile.objects.filter(user=song.user).update(
-            token_balance=F("token_balance") + GenerateMusicController.GENERATION_COST
-        )
-        TokenRecord.objects.create(
-            user=song.user,
-            amount=GenerateMusicController.GENERATION_COST,
-            type=TokenRecord.TokenType.EARNED,
-        )
+        # Information Expert: Profile owns the refund logic.
+        profile = get_object_or_404(Profile, user=song.user)
+        profile.refund(GenerateMusicController.GENERATION_COST)
 
         return song
 
-    @staticmethod
-    def get_public_track(share_token):
-        """Retrieve a publicly shared track by its share token (no login required)."""
-        return get_object_or_404(Song, share_token=share_token, is_public=True)
