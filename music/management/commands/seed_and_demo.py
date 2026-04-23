@@ -1,18 +1,21 @@
-"""Management command that seeds sample data and demonstrates CRUD operations."""
+"""Management command that seeds sample data and demonstrates the three use case flows."""
 
 from django.core.management.base import BaseCommand
 
-from music.controllers import MusicController
+from music.controllers import (
+    AdminTokenController,
+    GenerateMusicController,
+    InsufficientTokensError,
+    ManageLibraryController,
+)
 from music.models import Folder, Library, Profile, Song, TokenRecord, User
 
 
 class Command(BaseCommand):
-    help = 'Seeds sample domain data and demonstrates CRUD operations'
+    help = 'Seeds sample domain data and demonstrates the three SRS use case flows'
 
     def handle(self, *args, **options):
-        ctrl = MusicController
-
-        # Clean previous seed data so the command is re-runnable
+        # ── Clean previous seed data so the command is re-runnable ──────────
         Song.objects.all().delete()
         Folder.objects.all().delete()
         Library.objects.all().delete()
@@ -20,104 +23,113 @@ class Command(BaseCommand):
         Profile.objects.all().delete()
         User.objects.all().delete()
 
-        self.stdout.write('\n=== CREATE ===')
+        # ── Setup (registration scaffolding — not a use case) ────────────────
+        self.stdout.write('\n=== SETUP ===')
+        bella = User.objects.create(name='Bella', email='bella@example.com', role=User.UserRole.CREATOR)
+        admin_alex = User.objects.create(name='Alex', email='alex@example.com', role=User.UserRole.ADMIN)
+        Profile.objects.create(user=bella, token_balance=5)
+        Profile.objects.create(user=admin_alex, token_balance=0)
+        Library.objects.create(user=bella)
+        Library.objects.create(user=admin_alex)
+        self.stdout.write(f'Created users: {bella} (5 tokens), {admin_alex} (admin)')
 
-        # Create Users
-        alice = ctrl.create_user(name='Alice', email='alice@example.com', role=User.UserRole.CREATOR)
-        bob = ctrl.create_user(name='Bob', email='bob@example.com', role=User.UserRole.ADMIN)
-        self.stdout.write(f'Created users: {alice}, {bob}')
+        # ────────────────────────────────────────────────────────────────────
+        # UC-01: Generate and Share Brand-Safe Background Music
+        # ────────────────────────────────────────────────────────────────────
+        self.stdout.write('\n=== UC-01: Generate and Share Music ===')
 
-        # Create Profiles (1:1)
-        profile_a = ctrl.create_profile(user=alice, token_balance=100)
-        profile_b = ctrl.create_profile(user=bob, token_balance=50)
-        self.stdout.write(f'Created profiles: {profile_a}, {profile_b}')
-
-        # Create Token Records (many per user)
-        tr1 = ctrl.create_token_record(user=alice, amount=100, type=TokenRecord.TokenType.EARNED)
-        tr2 = ctrl.create_token_record(user=alice, amount=20, type=TokenRecord.TokenType.SPENT)
-        self.stdout.write(f'Created token records: {tr1}, {tr2}')
-
-        # Create Libraries (1:1)
-        lib_a = ctrl.create_library(user=alice)
-        lib_b = ctrl.create_library(user=bob)
-        self.stdout.write(f'Created libraries: {lib_a}, {lib_b}')
-
-        # Create Folders
-        pop_folder = ctrl.create_folder(library=lib_a, name='Pop Songs')
-        rock_folder = ctrl.create_folder(library=lib_a, name='Rock Songs')
-        self.stdout.write(f'Created folders: {pop_folder}, {rock_folder}')
-
-        # Create Songs
-        song1 = ctrl.create_song(
-            user=alice,
-            title='Sunshine Melody',
-            folder=pop_folder,
-            genre='Pop',
-            mood='Happy',
-            occasion='Birthday',
-            singer_style='Female Vocal',
-            topic='Celebration',
-            duration=210,
-            status=Song.SongStatus.COMPLETED,
-            is_public=True,
+        # Happy path — sufficient tokens
+        song = GenerateMusicController.request_generation(
+            user=bella,
+            title='Sukhumvit Rain',
+            genre='Lo-Fi / Chill-hop',
+            mood='Melancholic but cozy',
+            occasion='Vlog Background',
+            singer_style='Instrumental',
+            topic='Rainy afternoon coffee shop',
         )
-        song2 = ctrl.create_song(
-            user=alice,
-            title='Thunder Road',
-            folder=rock_folder,
-            genre='Rock',
-            mood='Energetic',
-            occasion='Road Trip',
-            singer_style='Male Vocal',
-            topic='Adventure',
-            duration=240,
-            status=Song.SongStatus.DRAFT,
+        self.stdout.write(f'Requested generation: "{song.title}" (status={song.status})')
+
+        bella_profile = Profile.objects.get(user=bella)
+        self.stdout.write(f"Bella's token balance after deduction: {bella_profile.token_balance}")
+
+        # Background task completes successfully
+        song = GenerateMusicController.mark_complete(song.pk)
+        self.stdout.write(f'Generation complete: "{song.title}" (status={song.status})')
+
+        # Share the track — toggle from Private to Public
+        song = ManageLibraryController.toggle_privacy(song.pk, user=bella)
+        self.stdout.write(f'Toggled privacy: is_public={song.is_public}, share_token={song.share_token}')
+
+        # Public Listener accesses via share token (no login required)
+        public_song = GenerateMusicController.get_public_track(share_token=song.share_token)
+        self.stdout.write(f'Public track retrieved: "{public_song.title}"')
+
+        # Exception flow — insufficient tokens (Bella now has 4 tokens, request a 2nd song)
+        song2 = GenerateMusicController.request_generation(
+            user=bella, title='Bangkok Rush', genre='Rock', mood='Energetic',
         )
-        song3 = ctrl.create_song(
-            user=bob,
-            title='Night Jazz',
-            genre='Jazz',
-            mood='Relaxed',
-            duration=180,
-            status=Song.SongStatus.GENERATING,
+        song2 = GenerateMusicController.mark_failed(song2.pk)
+        bella_profile.refresh_from_db()
+        self.stdout.write(
+            f'Failed generation: "{song2.title}" (status={song2.status}), '
+            f'tokens refunded -> balance={bella_profile.token_balance}'
         )
-        self.stdout.write(f'Created songs: {song1}, {song2}, {song3}')
 
-        # === READ ===
-        self.stdout.write('\n=== READ ===')
-        all_users = ctrl.list_users()
-        self.stdout.write(f'All users: {list(all_users.values_list("name", flat=True))}')
+        # Block: drain balance to 0 then attempt generation
+        Profile.objects.filter(user=bella).update(token_balance=0)
+        try:
+            GenerateMusicController.request_generation(user=bella, title='No Tokens Song')
+        except InsufficientTokensError as exc:
+            self.stdout.write(f'Blocked (no tokens): {exc}')
 
-        alice_songs = ctrl.list_songs(user=alice)
-        self.stdout.write(f"Alice's songs: {list(alice_songs.values_list('title', flat=True))}")
+        # ────────────────────────────────────────────────────────────────────
+        # UC-02: Manage Personal Library & Playback
+        # ────────────────────────────────────────────────────────────────────
+        self.stdout.write('\n=== UC-02: Manage Personal Library ===')
 
-        alice_profile = ctrl.get_profile(user_id=alice.pk)
-        self.stdout.write(f"Alice's token balance: {alice_profile.token_balance}")
+        # Restore balance and generate a second track for the demo
+        Profile.objects.filter(user=bella).update(token_balance=10)
+        song3 = GenerateMusicController.request_generation(
+            user=bella, title='Night Bloom', genre='Jazz', mood='Relaxed',
+        )
+        GenerateMusicController.mark_complete(song3.pk)
 
-        alice_records = ctrl.list_token_records(user_id=alice.pk)
-        self.stdout.write(f"Alice's token records: {list(alice_records.values('amount', 'type'))}")
+        tracks = ManageLibraryController.list_tracks(user=bella)
+        self.stdout.write(f"Bella's library: {list(tracks.values_list('title', flat=True))}")
 
-        folders = ctrl.list_folders(library_id=lib_a.pk)
-        self.stdout.write(f"Alice's folders: {list(folders.values_list('name', flat=True))}")
+        # Toggle privacy on a track from the library view
+        song3 = ManageLibraryController.toggle_privacy(song3.pk, user=bella)
+        self.stdout.write(f'Toggled privacy on "{song3.title}": is_public={song3.is_public}')
 
-        # === UPDATE ===
-        self.stdout.write('\n=== UPDATE ===')
-        song2 = ctrl.update_song(song2.pk, status=Song.SongStatus.COMPLETED, is_public=True)
-        self.stdout.write(f'Updated "{song2.title}" status to {song2.status}, is_public={song2.is_public}')
+        # Delete a track (ownership enforced)
+        title_to_delete = song3.title
+        ManageLibraryController.delete_track(song3.pk, user=bella)
+        remaining = ManageLibraryController.list_tracks(user=bella)
+        self.stdout.write(
+            f'Deleted "{title_to_delete}". Remaining: {list(remaining.values_list("title", flat=True))}'
+        )
 
-        alice_profile = ctrl.update_profile(user_id=alice.pk, token_balance=80)
-        self.stdout.write(f"Updated Alice's token balance to {alice_profile.token_balance}")
+        # ────────────────────────────────────────────────────────────────────
+        # UC-03: Admin Token Management
+        # ────────────────────────────────────────────────────────────────────
+        self.stdout.write('\n=== UC-03: Admin Token Management ===')
 
-        pop_folder = ctrl.update_folder(pop_folder.pk, name='Favourite Pop')
-        self.stdout.write(f'Renamed folder to "{pop_folder.name}"')
+        user, profile = AdminTokenController.get_user_profile(bella.pk)
+        self.stdout.write(f'Admin viewing profile: {user.name}, token_balance={profile.token_balance}')
 
-        # === DELETE ===
-        self.stdout.write('\n=== DELETE ===')
-        song3_title = song3.title
-        ctrl.delete_song(song3.pk)
-        self.stdout.write(f'Deleted song: {song3_title}')
+        # Refund 10 tokens (simulate failed generation support ticket)
+        profile = AdminTokenController.set_token_balance(bella.pk, profile.token_balance + 10)
+        self.stdout.write(f'Admin set token balance to {profile.token_balance}')
 
-        remaining = Song.objects.count()
-        self.stdout.write(f'Remaining songs: {remaining}')
+        # Exception flow — negative balance attempt
+        try:
+            AdminTokenController.set_token_balance(bella.pk, -50)
+        except ValueError as exc:
+            self.stdout.write(f'Blocked (negative balance): {exc}')
 
-        self.stdout.write(self.style.SUCCESS('\nCRUD demo completed successfully!'))
+        # List users for admin dashboard
+        users = AdminTokenController.list_users()
+        self.stdout.write(f'All users: {list(users.values_list("name", flat=True))}')
+
+        self.stdout.write(self.style.SUCCESS('\nAll three use case flows completed successfully!'))
