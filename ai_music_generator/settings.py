@@ -10,17 +10,26 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load .env from project root (ignored by git)
+load_dotenv(BASE_DIR / '.env')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-xn5slwc0gu^w=z28_tslcej^5^q&1um21h-*e7w)_o(u!b11_('
+SECRET_KEY = os.environ.get(
+    'SECRET_KEY',
+    'django-insecure-xn5slwc0gu^w=z28_tslcej^5^q&1um21h-*e7w)_o(u!b11_(',
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -120,3 +129,7 @@ STATIC_URL = 'static/'
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/library/'
 LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# ── Third-party music API keys (set in .env) ─────────────────────────────
+SUNO_API_KEY   = os.environ.get('SUNO_API_KEY', '')
+MUREKA_API_KEY = os.environ.get('MUREKA_API_KEY', '')
