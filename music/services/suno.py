@@ -41,7 +41,12 @@ class SunoStrategy(MusicGenerationStrategy):
             timeout=30,
         )
         resp.raise_for_status()
-        task_id = resp.json()["data"]["taskId"]
+        body = resp.json()
+        if not isinstance(body.get("data"), dict) or not body["data"].get("taskId"):
+            raise RuntimeError(
+                f"Suno API rejected the request: {body.get('msg') or body}"
+            )
+        task_id = body["data"]["taskId"]
 
         deadline = time.time() + _MAX_WAIT
         while time.time() < deadline:
@@ -53,8 +58,9 @@ class SunoStrategy(MusicGenerationStrategy):
                 timeout=15,
             )
             poll.raise_for_status()
-            data   = poll.json().get("data", {})
-            status = data.get("status", "")
+            poll_body = poll.json()
+            data      = poll_body.get("data") or {}
+            status    = data.get("status", "")
 
             if status in ("SUCCESS", "FIRST_SUCCESS"):
                 tracks = data.get("response", {}).get("data", [])
