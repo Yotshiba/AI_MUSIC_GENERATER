@@ -9,6 +9,7 @@ urlpatterns = [
     path('generate/', views.generate_view, name='generate'),
     path('library/', views.library_view, name='library'),
     path('library/<int:song_id>/delete/', views.delete_track_view, name='delete_track'),
+    path('library/<int:song_id>/download/', views.download_track_view, name='download_track'),
     path('library/<int:song_id>/toggle-privacy/', views.toggle_privacy_view, name='toggle_privacy'),
     path('listen/<uuid:share_token>/', views.public_listen_view, name='public_listen'),
     path('api/generation-status/', views.generation_status_view, name='generation_status'),

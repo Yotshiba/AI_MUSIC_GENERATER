@@ -4,7 +4,29 @@
 {% block content %}
 <h1>My Library</h1>
 
-{% if tracks %}
+<!-- Filter / Search Bar (UC-02 A2) -->
+<div class="card" style="padding:1rem 1.5rem; margin-bottom:1rem;">
+  <form method="get" action="" style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
+    <div>
+      <label style="margin-top:0;">Search</label>
+      <input type="text" name="search" value="{{ search }}" placeholder="Song title…" style="width:160px;">
+    </div>
+    <div>
+      <label style="margin-top:0;">Genre</label>
+      <input type="text" name="genre" value="{{ genre }}" placeholder="e.g. Jazz" style="width:120px;">
+    </div>
+    <div>
+      <label style="margin-top:0;">Mood</label>
+      <input type="text" name="mood" value="{{ mood }}" placeholder="e.g. Chill" style="width:120px;">
+    </div>
+    <button type="submit" class="btn btn-secondary" style="padding:0.45rem 0.9rem; font-size:0.85rem;">Filter</button>
+    {% if has_filters %}
+    <a href="{% url 'music:library' %}" class="btn btn-secondary" style="padding:0.45rem 0.9rem; font-size:0.85rem;">✕ Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+{% if page_obj.paginator.count %}
 <div class="card" style="padding:0; overflow:hidden;">
   <table>
     <thead>
@@ -55,6 +77,11 @@
                     style="padding:0.3rem 0.7rem; font-size:0.8rem;">
               ▶ Play
             </button>
+            <a href="{% url 'music:download_track' track.pk %}"
+               class="btn btn-secondary"
+               style="padding:0.3rem 0.7rem; font-size:0.8rem;">
+              ⬇ Download
+            </a>
           {% endif %}
           <form method="post" action="{% url 'music:toggle_privacy' track.pk %}">
             {% csrf_token %}
@@ -76,15 +103,40 @@
     </tbody>
   </table>
 </div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<div style="display:flex; justify-content:center; align-items:center; gap:1rem; margin-top:1rem; font-size:0.9rem;">
+  {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if genre %}&genre={{ genre }}{% endif %}{% if mood %}&mood={{ mood }}{% endif %}"
+       class="btn btn-secondary" style="padding:0.3rem 0.75rem;">« Prev</a>
+  {% endif %}
+  <span style="color:var(--muted);">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if genre %}&genre={{ genre }}{% endif %}{% if mood %}&mood={{ mood }}{% endif %}"
+       class="btn btn-secondary" style="padding:0.3rem 0.75rem;">Next »</a>
+  {% endif %}
+</div>
+{% endif %}
+
 {% else %}
 <div class="card">
   <div class="empty-state">
+    {% if has_filters %}
+    <div style="font-size:3rem; margin-bottom:1rem;">🔍</div>
+    <p style="font-size:1.1rem; font-weight:600; color:var(--text);">No tracks match your filters</p>
+    <p style="margin-top:0.5rem;">Try different keywords or clear the filters.</p>
+    <a href="{% url 'music:library' %}" class="btn btn-secondary"
+       style="display:inline-block; margin-top:1.25rem;">✕ Clear Filters</a>
+    {% else %}
     <div style="font-size:3rem; margin-bottom:1rem;">🎵</div>
     <p style="font-size:1.1rem; font-weight:600; color:var(--text);">Your library is empty</p>
     <p style="margin-top:0.5rem;">No tracks yet. Start generating your first masterpiece!</p>
     <a href="{% url 'music:generate' %}" class="btn btn-primary"
        style="display:inline-block; margin-top:1.25rem;">+ Generate Your First Track</a>
+    {% endif %}
   </div>
 </div>
 {% endif %}
 {% endblock %}
+

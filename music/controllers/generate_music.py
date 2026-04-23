@@ -10,7 +10,7 @@ Business rules encoded here (from SRS Appendix D, §10.2):
 from django.db.models import F
 from django.shortcuts import get_object_or_404
 
-from ..models import Profile, Song, TokenRecord
+from ..models import GenerationLog, Profile, Song, TokenRecord
 
 
 class InsufficientTokensError(Exception):
@@ -43,6 +43,19 @@ class GenerateMusicController:
             status=Song.SongStatus.GENERATING,
         )
 
+        GenerationLog.objects.create(
+            user=user,
+            song=song,
+            title=title,
+            genre=genre,
+            mood=mood,
+            occasion=occasion,
+            singer_style=singer_style,
+            topic=topic,
+            provider=provider,
+            status=GenerationLog.Status.SUCCESS,
+        )
+
         profile.token_balance -= GenerateMusicController.GENERATION_COST
         profile.save(update_fields=["token_balance"])
         TokenRecord.objects.create(
@@ -68,6 +81,8 @@ class GenerateMusicController:
         song = get_object_or_404(Song, pk=song_id)
         song.status = Song.SongStatus.FAILED
         song.save(update_fields=["status"])
+
+        GenerationLog.objects.filter(song_id=song_id).update(status=GenerationLog.Status.FAILED)
 
         Profile.objects.filter(user=song.user).update(
             token_balance=F("token_balance") + GenerateMusicController.GENERATION_COST

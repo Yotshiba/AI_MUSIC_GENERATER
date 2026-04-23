@@ -2,9 +2,10 @@ import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.db.models import Q
-from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -81,8 +82,30 @@ def generate_view(request):
 def library_view(request):
     music_user = _get_or_create_music_user(request.user)
     profile = Profile.objects.get(user=music_user)
-    tracks = ManageLibraryController.list_tracks(music_user)
-    return render(request, 'music/library.html', {'tracks': tracks, 'profile': profile})
+
+    genre  = request.GET.get('genre', '').strip()
+    mood   = request.GET.get('mood', '').strip()
+    search = request.GET.get('search', '').strip()
+
+    tracks_qs = ManageLibraryController.list_tracks(
+        music_user,
+        genre=genre or None,
+        mood=mood or None,
+        search=search or None,
+    )
+
+    paginator  = Paginator(tracks_qs, 20)
+    page_obj   = paginator.get_page(request.GET.get('page'))
+
+    return render(request, 'music/library.html', {
+        'tracks': page_obj,
+        'page_obj': page_obj,
+        'profile': profile,
+        'genre': genre,
+        'mood': mood,
+        'search': search,
+        'has_filters': bool(genre or mood or search),
+    })
 
 
 @login_required
@@ -91,8 +114,11 @@ def delete_track_view(request, song_id):
     music_user = _get_or_create_music_user(request.user)
     song = Song.objects.filter(pk=song_id, user=music_user).first()
     track_title = song.title if song else 'Track'
-    ManageLibraryController.delete_track(song_id, music_user)
-    messages.success(request, f'"{track_title}" has been deleted.')
+    try:
+        ManageLibraryController.delete_track(song_id, music_user)
+        messages.success(request, f'"{track_title}" has been deleted.')
+    except Exception:
+        messages.error(request, f'Could not delete "{track_title}". Please try again.')
     return redirect('music:library')
 
 
@@ -102,6 +128,32 @@ def toggle_privacy_view(request, song_id):
     music_user = _get_or_create_music_user(request.user)
     ManageLibraryController.toggle_privacy(song_id, music_user)
     return redirect('music:library')
+
+
+@login_required
+def download_track_view(request, song_id):
+    """Download the audio file for a completed track (REQ-4.3.6)."""
+    import requests as http_requests
+    music_user = _get_or_create_music_user(request.user)
+    song = get_object_or_404(Song, pk=song_id, user=music_user, status=Song.SongStatus.COMPLETED)
+
+    if not song.file_url:
+        messages.error(request, 'Audio file is not available for this track.')
+        return redirect('music:library')
+
+    try:
+        # Fetch the full file first — requests decompresses encoding automatically,
+        # avoiding double-decompression corruption that StreamingHttpResponse can cause.
+        resp = http_requests.get(song.file_url, timeout=60)
+        resp.raise_for_status()
+        safe_title = song.title.replace('/', '_').replace('\\', '_').replace('"', '')
+        content_type = resp.headers.get('content-type', 'audio/mpeg').split(';')[0].strip()
+        response = HttpResponse(resp.content, content_type=content_type)
+        response['Content-Disposition'] = f'attachment; filename="{safe_title}.mp3"'
+        return response
+    except Exception:
+        messages.error(request, 'Could not download the track. The audio file may be unavailable.')
+        return redirect('music:library')
 
 
 def public_listen_view(request, share_token):

@@ -1,0 +1,38 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block content %}
+<h1>Grant Tokens to Selected Users</h1>
+
+<p>You are about to grant tokens to the following <strong>{{ queryset.count }}</strong> user(s):</p>
+<ul style="margin: 0.5rem 0 1.25rem 1.5rem;">
+  {% for user in queryset %}
+  <li>{{ user.name }} ({{ user.email }})</li>
+  {% endfor %}
+</ul>
+
+<form method="post">
+  {% csrf_token %}
+  {% for user in queryset %}
+  <input type="hidden" name="{{ action_checkbox_name }}" value="{{ user.pk }}">
+  {% endfor %}
+  <input type="hidden" name="action" value="grant_tokens_action">
+  <input type="hidden" name="apply" value="1">
+
+  <fieldset class="module aligned">
+    <div class="form-row">
+      <label for="{{ form.amount.id_for_label }}" style="width:200px;">{{ form.amount.label }}:</label>
+      {{ form.amount }}
+      {% if form.amount.errors %}
+      <p class="errornote">{{ form.amount.errors }}</p>
+      {% endif %}
+    </div>
+  </fieldset>
+
+  <div class="submit-row">
+    <input type="submit" class="default" value="Grant Tokens">
+    &nbsp;
+    <a href="{% url 'admin:music_user_changelist' %}" class="button cancel-link">Cancel</a>
+  </div>
+</form>
+{% endblock %}

@@ -15,9 +15,16 @@ class ManageLibraryController:
     """Controls the personal library management use case (UC-02)."""
 
     @staticmethod
-    def list_tracks(user):
-        """Return all songs owned by the user, newest first."""
-        return Song.objects.filter(user=user).order_by("-created_at")
+    def list_tracks(user, genre=None, mood=None, search=None):
+        """Return songs owned by the user, newest first. Supports optional filters."""
+        qs = Song.objects.filter(user=user).order_by("-created_at")
+        if genre:
+            qs = qs.filter(genre__icontains=genre)
+        if mood:
+            qs = qs.filter(mood__icontains=mood)
+        if search:
+            qs = qs.filter(title__icontains=search)
+        return qs
 
     @staticmethod
     def delete_track(song_id, user):

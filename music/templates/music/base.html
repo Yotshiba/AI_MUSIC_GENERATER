@@ -393,6 +393,29 @@
     localStorage.removeItem(MP_KEY);
   });
 
+  /* ── Playback Failure Error (UC-02 E1) ───────────────────────── */
+  audio.addEventListener('error', function() {
+    if (!audio.src || audio.src === window.location.href) return;
+    player.style.display = 'none';
+    localStorage.removeItem(MP_KEY);
+    var errToast = document.createElement('div');
+    errToast.className = 'toast';
+    errToast.style.borderColor = 'var(--danger-bg)';
+    errToast.style.color = 'var(--danger-text)';
+    errToast.textContent = '⚠ Playback failed — audio file is unavailable.';
+    var container = document.getElementById('toast-container');
+    if (!container) {
+      container = document.createElement('div');
+      container.id = 'toast-container';
+      document.body.appendChild(container);
+    }
+    container.appendChild(errToast);
+    setTimeout(function() {
+      errToast.style.opacity = '0';
+      setTimeout(function() { errToast.remove(); }, 420);
+    }, 4000);
+  });
+
   /* ── Delete Confirmation Modal ────────────────────────────────── */
   var modal       = document.getElementById('delete-modal');
   var modalMsg    = document.getElementById('modal-msg');

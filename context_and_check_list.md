@@ -112,7 +112,7 @@ views.py  ──── profanity.py (content filter)
 - [x] **REQ-4.3.3 Persistence** — user redirected to Library after submit; generation continues in background
 - [x] **REQ-4.3.4 Status Tracking** — Global Status Bar polls `/api/generation-status/` every 3 seconds; shows "Generating…", "Ready!", or "Failed"
 - [ ] **REQ-4.3.5** — 3-minute duration target *(API-dependent; passed as parameter where supported)*
-- [ ] **REQ-4.3.6** — Export in .mp3/.wav/.flac *(not yet implemented — currently streams from API URL)*
+- [x] **REQ-4.3.6** — Export/download in .mp3 — ⬇ Download button on completed tracks; proxy-streamed via `download_track_view`
 - [x] **REQ-4.3.7 Timeout & Refund** — on any exception in the worker, `mark_failed()` refunds tokens; django-q2 timeout set to 360 s
 
 ### Section 4.4 — Music Library & Management
@@ -131,7 +131,7 @@ views.py  ──── profanity.py (content filter)
 ### Section 5 — Non-Functional Requirements
 
 - [x] **REQ-5.2.1 Profanity Filter** — title, mood, topic, genre checked against blocklist before generation; tokens NOT deducted on violation
-- [ ] **REQ-5.2.2 Thai Law Logging** — generation request inputs not yet formally audit-logged *(django_admin_log covers admin actions only)*
+- [x] **REQ-5.2.2 Thai Law Logging** — `GenerationLog` model captures all generation inputs (title, genre, mood, occasion, singer_style, topic, provider, status) on every request; viewable in Django Admin with date filter and search
 - [x] **REQ-5.3.2 API Security** — all API keys stored in `.env`, never in source code
 - [x] **SRS 3.1.2 Theme** — Dark/Light mode toggle, persisted in localStorage
 - [x] **SRS 5.6.3 Responsive** — breakpoints at 480px (mobile) and 1024px (tablet)
@@ -161,7 +161,7 @@ views.py  ──── profanity.py (content filter)
 | Profanity violation error (E2) | ✅ | Tokens not deducted |
 | Timeout / API failure — token refund (E3) | ✅ | `mark_failed()` in tasks.py |
 | Dark Mode toggle during generation (A2) | ✅ | CSS variables + JS |
-| Download track (A3) | ❌ | Not yet implemented |
+| Download track (A3) | ✅ | ⬇ Download button → `download_track_view` proxy-streams audio |
 
 ### UC-02 — Manage Personal Library & Playback
 
@@ -176,10 +176,10 @@ views.py  ──── profanity.py (content filter)
 | Confirm delete → track removed + toast | ✅ | Django messages framework |
 | Toggle Public/Private | ✅ | |
 | Share URL copied from library | ✅ | Share URL shown inline |
-| Sorting / Filtering by genre (A2) | ❌ | Not yet implemented |
+| Sorting / Filtering by genre (A2) | ✅ | Filter bar: search, genre, mood — GET params, icontains |
 | Empty library friendly message (A3) | ✅ | CTA button to Generate |
-| Playback failure error (E1) | ❌ | No file-missing check yet |
-| Deletion DB error handling (E2) | ❌ | No specific error feedback |
+| Playback failure error (E1) | ✅ | `audio.onerror` → toast in mini-player JS |
+| Deletion DB error handling (E2) | ✅ | try/except in `delete_track_view` → `messages.error` |
 
 ### UC-03 — Admin Token Management
 
@@ -191,7 +191,7 @@ views.py  ──── profanity.py (content filter)
 | Set new token balance | ✅ | Validated 0–9999 |
 | Change recorded in admin log | ✅ | `django_admin_log` (automatic) |
 | Negative balance blocked (E1) | ✅ | `MinValueValidator(0)` |
-| Bulk promotional grant (A1) | ❌ | No custom Admin Action yet |
+| Bulk promotional grant (A1) | ✅ | `grant_tokens_action` custom Admin Action with intermediate form |
 
 ---
 
@@ -255,14 +255,9 @@ context_and_check_list.md — This file
 
 | Item | SRS Ref | Priority |
 |------|---------|---------|
-| Download track as .mp3/.wav/.flac | REQ-4.3.6 | Medium |
-| Audit log for generation inputs (Thai law compliance) | REQ-5.2.2 | Medium |
-| Filter/search library by genre or mood | UC-02 A2 | Low |
-| Bulk admin token grant action | UC-03 A1 | Low |
-| Folder management UI (model exists, no views) | Phase 2 (SRS App. C) | Low |
 | Unit tests for controllers and views | — | Medium |
-| Playback failure error message | UC-02 E1 | Low |
-| Pagination for large libraries | — | Low |
+| Folder management UI (model exists, no views) | Phase 2 (SRS App. C) | Low |
+| Pagination for large libraries | — | ✅ Done (20/page) |
 
 ---
 

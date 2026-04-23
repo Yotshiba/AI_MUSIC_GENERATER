@@ -1,4 +1,5 @@
 from .folder import Folder
+from .generation_log import GenerationLog
 from .library import Library
 from .profile import Profile
 from .song import Song
@@ -12,4 +13,5 @@ __all__ = [
     'Library',
     'Folder',
     'Song',
+    'GenerationLog',
 ]
