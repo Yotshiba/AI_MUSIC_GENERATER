@@ -7,63 +7,158 @@ Based on SRS v1.0 (29/01/2026)
 
 ---
 
-## Quick Start
+## 1. Installation
+
+### Prerequisites
+- Python 3.10+
+- Git
+
+### Steps
 
 ```bash
-# 1. Create & activate a virtual environment
-python -m venv venv
-source venv/bin/activate     # Linux/Mac
-venv\Scripts\activate        # Windows
+# 1. Clone the repository
+git clone https://github.com/Yotshiba/AI_MUSIC_GENERATER.git
+cd AI_MUSIC_GENERATER
 
-# 2. Install dependencies
+# 2. Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate      # macOS / Linux
+venv\Scripts\activate         # Windows
+
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# 3. Copy environment config and fill in your values
+# 4. Set up environment variables  (see Section 2 below)
 cp .env.example .env
+# → open .env and fill in your values
 
-# 4. Apply database migrations
+# 5. Apply database migrations
 python manage.py migrate
 
-# 5. Create a superuser (for Django Admin & local login)
+# 6. Create a superuser (for Django Admin)
 python manage.py createsuperuser
-
-# 6. Start the development server  (Terminal 1)
-python manage.py runserver
-
-# 7. Start the background task worker  (Terminal 2 — REQUIRED for music generation)
-python manage.py qcluster
 ```
 
-> **Both terminals must be running.** Without `qcluster`, submitted generation requests will queue in the database but never execute.
-
-Visit `http://127.0.0.1:8000/` — you will be redirected to the login page.
-
 ---
 
-## Environment Variables
+## 2. Environment Variables (Secret Keys)
 
-Copy `.env.example` to `.env` and fill in your values:
+All secrets are stored in a `.env` file at the project root. **Never commit this file.**
+Copy the template and fill in your values:
 
-| Variable | Description |
-|----------|-------------|
-| `SECRET_KEY` | Django secret key |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID (see `.env.example` for setup steps) |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth client secret |
-| `MUSIC_API_PROVIDER` | Default provider: `mureka` or `suno` |
-| `MUREKA_API_KEY` | API key from platform.mureka.ai |
-| `SUNO_API_KEY` | API key from sunoapi.org |
-| `SUNO_BASE_URL` | Suno base URL (default: `https://api.sunoapi.org`) |
+```bash
+cp .env.example .env
+```
 
----
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SECRET_KEY` | ✅ Always | Django secret key — generate one at [djecrety.ir](https://djecrety.ir) |
+| `GENERATOR_STRATEGY` | ✅ Always | `mock` (offline) · `suno` · `mureka` · *(empty = user picks in form)* |
+| `SUNO_API_KEY` | Suno mode only | API key from [sunoapi.org](https://sunoapi.org) |
+| `SUNO_BASE_URL` | Suno mode only | Default: `https://api.sunoapi.org` |
+| `MUREKA_API_KEY` | Mureka mode only | API key from [platform.mureka.ai](https://platform.mureka.ai) |
+| `MUSIC_API_PROVIDER` | Optional | Default provider shown in the form: `mureka` or `suno` |
+| `GOOGLE_CLIENT_ID` | OAuth only | Google OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | OAuth only | Google OAuth client secret |
 
-## Google OAuth Setup (one-time)
+### How to get a Suno API key
+
+1. Go to [sunoapi.org](https://sunoapi.org) and create an account
+2. Navigate to **API Keys** in your dashboard
+3. Click **Create Key** and copy the key
+4. Paste it into `.env`:
+   ```
+   SUNO_API_KEY=sk-...your-key-here...
+   SUNO_BASE_URL=https://api.sunoapi.org
+   GENERATOR_STRATEGY=suno
+   ```
+
+### How to get a Mureka API key
+
+1. Go to [platform.mureka.ai](https://platform.mureka.ai) and create an account
+2. Go to **API Keys** → **Create**
+3. Copy the key and paste into `.env`:
+   ```
+   MUREKA_API_KEY=your-mureka-key-here
+   GENERATOR_STRATEGY=mureka
+   ```
+
+### Google OAuth setup (optional)
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
 2. Create an **OAuth 2.0 Client ID** (Web application)
 3. Add authorised redirect URI: `http://localhost:8000/accounts/google/login/callback/`
-4. Copy the Client ID and Secret into `.env`
-5. In Django Admin → **Sites** → change domain to `localhost:8000`
-6. In Django Admin → **Social Applications** → add a new Google provider using those credentials
+4. Paste the Client ID and Secret into `.env`
+5. In Django Admin → **Sites** → set domain to `localhost:8000`
+6. In Django Admin → **Social Applications** → add Google provider with those credentials
+
+---
+
+## 3. Running the App
+
+> ⚠️ **Two terminals are required.** The web server and the background task worker must both be running for music generation to work.
+
+### Mode A — Mock Mode (offline, no API key needed)
+
+Use this for development and testing. Generation returns a fixed sample MP3 in ~2 seconds with no external API calls.
+
+**Step 1** — set in `.env`:
+```
+GENERATOR_STRATEGY=mock
+```
+
+**Step 2** — start the servers:
+```bash
+# Terminal 1 — web server
+python manage.py runserver
+
+# Terminal 2 — background worker (required for generation)
+python manage.py qcluster
+```
+
+**Step 3** — open `http://127.0.0.1:8000/`, log in, submit the generation form.
+The status bar will show **"Ready!"** in ~2 seconds and a placeholder MP3 will appear in your library.
+
+---
+
+### Mode B — Suno Mode (real AI generation)
+
+**Step 1** — set in `.env`:
+```
+GENERATOR_STRATEGY=suno
+SUNO_API_KEY=sk-...your-key-here...
+SUNO_BASE_URL=https://api.sunoapi.org
+```
+
+**Step 2** — start the servers:
+```bash
+# Terminal 1
+python manage.py runserver
+
+# Terminal 2
+python manage.py qcluster
+```
+
+**Step 3** — open `http://127.0.0.1:8000/`, log in, submit the generation form.
+The Suno strategy will:
+1. POST to `/api/v1/generate` with your Bearer token
+2. Extract the returned `taskId`
+3. Poll `GET /api/v1/generate/record-info?taskId=...` every 5 seconds
+4. Return the audio URL when status reaches `SUCCESS` or `FIRST_SUCCESS`
+
+Generation typically completes in **30–60 seconds**. The status bar updates in real time.
+
+---
+
+### Mode C — Mureka Mode
+
+**Step 1** — set in `.env`:
+```
+GENERATOR_STRATEGY=mureka
+MUREKA_API_KEY=your-mureka-key-here
+```
+
+**Step 2** — start both servers (same as above).
 
 ---
 
@@ -128,30 +223,15 @@ Strategy selection is **centralized** in `music/services/__init__.py → get_str
 
 ### Running in Mock Mode (offline, no API key)
 
-Set `GENERATOR_STRATEGY=mock` in your `.env`:
+→ See **[Section 3 — Mode A](#mode-a--mock-mode-offline-no-api-key-needed)** for full instructions.
 
-```
-GENERATOR_STRATEGY=mock
-```
-
-Then start normally:
-
-```bash
-python manage.py runserver   # Terminal 1
-python manage.py qcluster    # Terminal 2
-```
-
-Submit any generation form — the background worker will return a fixed sample MP3 in ~2 seconds. No API key is required.
+Summary: set `GENERATOR_STRATEGY=mock` in `.env` — no API key required.
 
 ### Running in Suno Mode
 
-Set `GENERATOR_STRATEGY=suno` (or leave it empty and pick "Suno" in the form):
+→ See **[Section 3 — Mode B](#mode-b--suno-mode-real-ai-generation)** for full instructions.
 
-```
-GENERATOR_STRATEGY=suno
-SUNO_API_KEY=your-suno-api-key-here
-SUNO_BASE_URL=https://api.sunoapi.org
-```
+Summary: set `GENERATOR_STRATEGY=suno` and `SUNO_API_KEY=sk-...` in `.env`.
 
 The Suno strategy:
 1. POSTs to `/api/v1/generate` with `Authorization: Bearer <token>`
@@ -171,12 +251,13 @@ Get your key from [sunoapi.org](https://sunoapi.org).
 
 ### Strategy Selection Logic
 
-`GENERATOR_STRATEGY` in `.env` overrides the per-request provider globally:
+`GENERATOR_STRATEGY` in `.env` controls which provider is used globally:
 
 ```
-GENERATOR_STRATEGY=mock    # All generation uses Mock (offline)
-GENERATOR_STRATEGY=suno    # All generation uses Suno regardless of form
-GENERATOR_STRATEGY=        # (empty) User's form choice is used
+GENERATOR_STRATEGY=mock    # All generation uses Mock (offline, no API key)
+GENERATOR_STRATEGY=suno    # All generation uses Suno
+GENERATOR_STRATEGY=mureka  # All generation uses Mureka
+GENERATOR_STRATEGY=        # (empty) — user's form choice is used
 ```
 
 ---
