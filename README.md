@@ -231,32 +231,47 @@ templates/
 
 ## Class Diagram
 
-The diagram is organized by the **MVT + Controller + Strategy** architecture layers.
+The diagram is organized by the **MVT + Controller + Strategy** architecture layers. Each layer is colour-coded.
+
+| Layer | Colour |
+|-------|--------|
+| 🟦 Model | Blue |
+| 🟩 Controller | Green |
+| 🟧 Service / Strategy | Orange |
+| 🟥 View | Red |
+| 🟪 Template | Purple |
 
 ```mermaid
 classDiagram
-    %% ── MODEL LAYER ─────────────────────────────────────────────────────────
-    class User {
+    %% ── COLOUR DEFINITIONS ───────────────────────────────────────────────────
+    classDef modelStyle      fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    classDef controllerStyle fill:#dcfce7,stroke:#22c55e,color:#14532d
+    classDef serviceStyle    fill:#ffedd5,stroke:#f97316,color:#7c2d12
+    classDef viewStyle       fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    classDef templateStyle   fill:#f3e8ff,stroke:#a855f7,color:#4a044e
+
+    %% ── MODEL LAYER (Blue) ───────────────────────────────────────────────────
+    class User:::modelStyle {
         +String name
         +String email
         +String role
     }
-    class Profile {
+    class Profile:::modelStyle {
         +int token_balance
         +can_afford(cost) bool
         +deduct(cost) void
         +refund(cost) void
     }
-    class TokenRecord {
+    class TokenRecord:::modelStyle {
         +int amount
         +String type
     }
-    class Library {
+    class Library:::modelStyle {
     }
-    class Folder {
+    class Folder:::modelStyle {
         +String name
     }
-    class Song {
+    class Song:::modelStyle {
         +String title
         +String genre
         +String mood
@@ -273,64 +288,50 @@ classDiagram
         +mark_failed() void
         +toggle_privacy() void
     }
-    class GenerationLog {
+    class GenerationLog:::modelStyle {
         +String title
         +String genre
         +String mood
         +String status
     }
 
-    %% ── CONTROLLER LAYER ────────────────────────────────────────────────────
-    class GenerateMusicController {
+    %% ── CONTROLLER LAYER (Green) ─────────────────────────────────────────────
+    class GenerateMusicController:::controllerStyle {
         +request_generation(user, ...) Song
         +mark_complete(song_id, url) Song
         +mark_failed(song_id) Song
     }
-    class ManageLibraryController {
+    class ManageLibraryController:::controllerStyle {
         +get_library(user) List
         +delete_song(user, song_id) void
         +toggle_privacy(user, song_id) Song
     }
-    class AdminTokenController {
+    class AdminTokenController:::controllerStyle {
         +list_users() List
         +set_balance(user_id, amount) void
     }
 
-    %% ── SERVICE LAYER — Strategy Pattern ────────────────────────────────────
-    class MusicGenerationStrategy {
+    %% ── SERVICE LAYER — Strategy Pattern (Orange) ────────────────────────────
+    class MusicGenerationStrategy:::serviceStyle {
         <<abstract>>
         +name() str
         +generate(song) str
     }
-    class MockSongGeneratorStrategy {
+    class MockSongGeneratorStrategy:::serviceStyle {
         +name() str
         +generate(song) str
     }
-    class SunoStrategy {
+    class SunoStrategy:::serviceStyle {
         +name() str
         +generate(song) str
     }
-    class MurekaStrategy {
+    class MurekaStrategy:::serviceStyle {
         +name() str
         +generate(song) str
     }
 
-    %% ── TEMPLATE LAYER ──────────────────────────────────────────────────────
-    class base_html["base.html (Template)"] {
-        nav, status-bar, mini-player, theme-toggle
-    }
-    class generate_html["generate.html (Template)"] {
-        6-field generation form
-    }
-    class library_html["library.html (Template)"] {
-        track list, play/delete/privacy actions
-    }
-    class public_listen_html["public_listen.html (Template)"] {
-        public share page (no auth)
-    }
-
-    %% ── VIEW LAYER ──────────────────────────────────────────────────────────
-    class views_py["views.py (View)"] {
+    %% ── VIEW LAYER (Red) ─────────────────────────────────────────────────────
+    class views_py["views.py"]:::viewStyle {
         +generate_view()
         +library_view()
         +public_listen_view()
@@ -338,7 +339,21 @@ classDiagram
         +download_track_view()
     }
 
-    %% ── RELATIONSHIPS ───────────────────────────────────────────────────────
+    %% ── TEMPLATE LAYER (Purple) ──────────────────────────────────────────────
+    class base_html["base.html"]:::templateStyle {
+        nav, status-bar, mini-player, theme-toggle
+    }
+    class generate_html["generate.html"]:::templateStyle {
+        6-field generation form
+    }
+    class library_html["library.html"]:::templateStyle {
+        track list, play/delete/privacy actions
+    }
+    class public_listen_html["public_listen.html"]:::templateStyle {
+        public share page, no auth
+    }
+
+    %% ── RELATIONSHIPS ────────────────────────────────────────────────────────
     User "1" --o "1" Profile : has
     User "1" --o "1" Library : has
     User "1" --o "*" Song : owns
@@ -365,6 +380,110 @@ classDiagram
     views_py ..> generate_html : renders
     views_py ..> library_html : renders
     views_py ..> public_listen_html : renders
+```
+
+---
+
+## Sequence Diagrams
+
+### UC-01 — Generate Music (Happy Path)
+
+```mermaid
+sequenceDiagram
+    actor User as 👤 User (Browser)
+    participant View as views.py
+    participant Ctrl as GenerateMusicController
+    participant Profile as Profile (Model)
+    participant Song as Song (Model)
+    participant Log as GenerationLog (Model)
+    participant Queue as django-q2 Worker
+    participant Strategy as Strategy (Suno / Mock)
+    participant API as External AI API
+
+    User->>View: POST /generate/ (title, genre, mood, …)
+    View->>Ctrl: request_generation(user, title, …)
+
+    Note over Ctrl: @transaction.atomic
+
+    Ctrl->>Ctrl: contains_profanity(fields)?
+    alt profanity detected
+        Ctrl-->>View: raise ProfanityError
+        View-->>User: ⚠️ "Inappropriate language" error
+    else clean input
+        Ctrl->>Profile: deduct(1 token)
+        Profile->>Profile: token_balance -= 1
+        Profile-->>Ctrl: ✅ deducted
+        Ctrl->>Song: Song.objects.create(status=GENERATING)
+        Song-->>Ctrl: song (id=X)
+        Ctrl->>Log: GenerationLog.objects.create(…)
+        Log-->>Ctrl: ✅
+        Ctrl-->>View: song
+        View->>Queue: async_task("generate_music_task", song.id)
+        View-->>User: 302 Redirect → /library/
+
+        Note over Queue: Runs in background (Terminal 2)
+
+        Queue->>Strategy: get_strategy(provider)
+        Queue->>Strategy: strategy.generate(song)
+        Strategy->>API: POST /api/v1/generate (Bearer token)
+        API-->>Strategy: { taskId: "abc123" }
+
+        loop Poll every 5 s (poll_until)
+            Strategy->>API: GET /api/v1/generate/record-info?taskId=abc123
+            API-->>Strategy: { status: "PENDING" }
+        end
+
+        API-->>Strategy: { status: "SUCCESS", audioUrl: "…" }
+        Strategy-->>Queue: audio_url
+        Queue->>Ctrl: mark_complete(song.id, audio_url)
+        Ctrl->>Song: song.mark_complete(audio_url)
+        Song->>Song: status = COMPLETED, file_url = audio_url
+
+        User->>View: GET /api/generation-status/ (JS polls every 3 s)
+        View-->>User: { status: "Completed" }
+        Note over User: Status bar → "Ready!" 🎵
+    end
+```
+
+### UC-01 — Generate Music (Failure / Timeout Path)
+
+```mermaid
+sequenceDiagram
+    actor User as 👤 User (Browser)
+    participant Queue as django-q2 Worker
+    participant Strategy as Strategy (Suno / Mock)
+    participant API as External AI API
+    participant Ctrl as GenerateMusicController
+    participant Song as Song (Model)
+    participant Profile as Profile (Model)
+
+    Note over Queue: Background task running…
+
+    Queue->>Strategy: strategy.generate(song)
+    Strategy->>API: POST /api/v1/generate
+    API-->>Strategy: { taskId: "xyz" }
+
+    loop Poll (poll_until)
+        Strategy->>API: GET record-info?taskId=xyz
+        API-->>Strategy: { status: "FAILED" }
+    end
+
+    Strategy-->>Queue: raise RuntimeError("generation failed")
+
+    Note over Queue: except Exception caught in tasks.py
+
+    Queue->>Ctrl: mark_failed(song.id)
+
+    Note over Ctrl: @transaction.atomic
+
+    Ctrl->>Song: song.mark_failed()
+    Song->>Song: status = FAILED
+    Ctrl->>Profile: profile.refund(1 token)
+    Profile->>Profile: token_balance += 1
+
+    User->>Queue: GET /api/generation-status/ (JS polls)
+    Queue-->>User: { status: "Failed" }
+    Note over User: Status bar → "Failed" ❌ token refunded
 ```
 
 ---
