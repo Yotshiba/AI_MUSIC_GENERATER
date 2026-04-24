@@ -162,7 +162,86 @@ MUREKA_API_KEY=your-mureka-key-here
 
 ---
 
-## Features
+## 4. Demonstration — Example Run Output
+
+Both strategies are covered by the automated test suite (20 tests). Run them with:
+
+```bash
+python manage.py test music.tests --verbosity=2
+```
+
+### Mock Strategy — evidence it works
+
+```
+test_mock_generate_returns_url (music.tests.MockStrategyTests.test_mock_generate_returns_url)
+Mock generate() returns a non-empty audio URL without any network call. ... ok
+
+test_mock_generate_no_network (music.tests.MockStrategyTests.test_mock_generate_no_network)
+Mock generate() must NOT make any HTTP requests. ... ok
+
+test_mock_generate_is_deterministic (music.tests.MockStrategyTests.test_mock_generate_is_deterministic)
+Mock always returns the same URL regardless of song parameters. ... ok
+```
+
+The mock strategy returns a fixed public MP3 URL after a 2-second simulated delay — **no API key, no network required**:
+
+```
+audio_url = "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+```
+
+---
+
+### Suno Strategy — evidence it creates a taskId and retrieves status
+
+**Test: taskId is extracted and used for polling**
+```
+test_suno_creates_task_id_on_submit (music.tests.SunoStrategyTests.test_suno_creates_task_id_on_submit)
+Verify Suno extracts and uses the taskId returned by the generate endpoint. ...
+[DEBUG] music: poll_until taskId=task-unique-789 data={'status': 'SUCCESS',
+  'response': {'sunoData': [{'streamAudioUrl': 'https://cdn.sunoapi.org/example.mp3',
+                             'audioUrl':       'https://cdn.sunoapi.org/example.mp3'}]}}
+ok
+```
+
+**Test: full happy-path flow (POST → taskId → poll → audio URL)**
+```
+test_suno_generate_full_flow (music.tests.SunoStrategyTests.test_suno_generate_full_flow)
+Demonstrate Suno strategy full happy-path flow: ...
+[DEBUG] music: poll_until taskId=task-demo-456 data={'status': 'SUCCESS',
+  'response': {'sunoData': [{'streamAudioUrl': 'https://cdn.sunoapi.org/demo-track.mp3',
+                             'audioUrl':       'https://cdn.sunoapi.org/demo-track.mp3'}]}}
+ok
+```
+
+**Test: polling loops until status changes from PENDING → SUCCESS**
+```
+test_suno_polls_until_success (music.tests.SunoStrategyTests.test_suno_polls_until_success)
+Verify Suno polls multiple times if status is not yet SUCCESS. ...
+[DEBUG] music: poll_until taskId=task-111 data={'status': 'PENDING', 'response': {}}
+[DEBUG] music: poll_until taskId=task-111 data={'status': 'PENDING', 'response': {}}
+[DEBUG] music: poll_until taskId=task-111 data={'status': 'SUCCESS',
+  'response': {'sunoData': [{'streamAudioUrl': 'https://cdn.sunoapi.org/example.mp3'}]}}
+ok
+```
+
+**Test: failure status is detected and RuntimeError is raised**
+```
+test_suno_raises_on_failed_status (music.tests.SunoStrategyTests.test_suno_raises_on_failed_status)
+Verify Suno raises RuntimeError when API returns FAILED status. ...
+[DEBUG] music: poll_until taskId=task-fail data={'status': 'FAILED', 'response': {}}
+[ERROR] music: Provider reported failure: taskId=task-fail data={'status': 'FAILED', 'response': {}}
+ok
+```
+
+**Full test suite result:**
+```
+----------------------------------------------------------------------
+Ran 20 tests in 0.008s
+
+OK
+```
+
+---
 
 | Feature | SRS Ref | Status |
 |---------|---------|--------|
@@ -314,7 +393,13 @@ templates/
 
 The diagram is organized by the **MVT + Controller + Strategy** architecture layers. Each layer is colour-coded.
 
-![Class Diagram](diagrams/AI_Music_Generator_Class_Diagram.png)
+| Layer | Colour |
+|-------|--------|
+| 🟦 Model | Blue |
+| 🟩 Controller | Green |
+| 🟧 Service / Strategy | Orange |
+| 🟥 View | Red |
+| 🟪 Template | Purple |
 
 ---
 
