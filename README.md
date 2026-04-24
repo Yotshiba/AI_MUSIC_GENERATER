@@ -381,11 +381,25 @@ classDiagram
     classDef viewStyle       fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
     classDef templateStyle   fill:#f3e8ff,stroke:#a855f7,color:#4a044e
 
-    class User,Profile,TokenRecord,Library,Folder,Song,GenerationLog modelStyle
-    class GenerateMusicController,ManageLibraryController,AdminTokenController controllerStyle
-    class MusicGenerationStrategy,MockSongGeneratorStrategy,SunoStrategy,MurekaStrategy serviceStyle
+    class User modelStyle
+    class Profile modelStyle
+    class TokenRecord modelStyle
+    class Library modelStyle
+    class Folder modelStyle
+    class Song modelStyle
+    class GenerationLog modelStyle
+    class GenerateMusicController controllerStyle
+    class ManageLibraryController controllerStyle
+    class AdminTokenController controllerStyle
+    class MusicGenerationStrategy serviceStyle
+    class MockSongGeneratorStrategy serviceStyle
+    class SunoStrategy serviceStyle
+    class MurekaStrategy serviceStyle
     class views_py viewStyle
-    class base_html,generate_html,library_html,public_listen_html templateStyle
+    class base_html templateStyle
+    class generate_html templateStyle
+    class library_html templateStyle
+    class public_listen_html templateStyle
 ```
 
 ---
