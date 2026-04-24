@@ -1,0 +1,79 @@
+@startuml UC01_Happy_Path
+skinparam sequenceArrowThickness 2
+skinparam sequenceGroupBorderColor #888888
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+' Colour legend:
+'   Actor / User  — Green  (#bbf7d0 / #22c55e)  — Controller layer colour
+'   View Layer    — Red    (#fecaca / #ef4444)
+'   Controller    — Green  (#bbf7d0 / #22c55e)
+'   Model Layer   — Blue   (#bfdbfe / #3b82f6)
+'   Service Layer — Orange (#fed7aa / #f97316)
+'   External API  — Gray   (#e5e7eb / #9ca3af)
+
+skinparam actor {
+    BackgroundColor #bbf7d0
+    BorderColor #22c55e
+    FontColor #14532d
+}
+skinparam participant {
+    BackgroundColor #FFFFFF
+    BorderColor #888888
+}
+
+actor "User (Browser)" as User
+participant "views.py" as View #fecaca
+participant "GenerateMusicController" as Ctrl #bbf7d0
+participant "Profile (Model)" as Profile #bfdbfe
+participant "Song (Model)" as Song #bfdbfe
+participant "GenerationLog (Model)" as Log #bfdbfe
+participant "django-q2 Worker" as Queue #fecaca
+participant "Strategy (Suno / Mock)" as Strategy #fed7aa
+participant "External AI API" as API #e5e7eb
+
+User -> View : POST /generate/ (title, genre, mood, ...)
+View -> Ctrl : request_generation(user, title, ...)
+
+note over Ctrl : @transaction.atomic
+
+Ctrl -> Ctrl : contains_profanity(fields)?
+
+alt profanity detected
+    Ctrl --> View : raise ProfanityError
+    View --> User : "Inappropriate language" error
+else clean input
+    Ctrl -> Profile : deduct(1 token)
+    Profile -> Profile : token_balance -= 1
+    Profile --> Ctrl : deducted
+    Ctrl -> Song : Song.objects.create(status=GENERATING)
+    Song --> Ctrl : song (id=X)
+    Ctrl -> Log : GenerationLog.objects.create(...)
+    Log --> Ctrl : ok
+    Ctrl --> View : song
+    View -> Queue : async_task("generate_music_task", song.id, provider)
+    View --> User : 302 Redirect -> /library/
+
+    note over Queue : Runs in background (Terminal 2)
+
+    Queue -> Strategy : get_strategy(provider)
+    Queue -> Strategy : strategy.generate(song)
+    Strategy -> API : POST /api/v1/generate (Bearer token)
+    API --> Strategy : { taskId: "abc123" }
+
+    loop Poll every 5 s (poll_until)
+        Strategy -> API : GET /api/v1/generate/record-info?taskId=abc123
+        API --> Strategy : { status: "PENDING" }
+    end
+
+    API --> Strategy : { status: "SUCCESS", audioUrl: "..." }
+    Strategy --> Queue : audio_url
+    Queue -> Ctrl : mark_complete(song.id, audio_url)
+    Ctrl -> Song : song.mark_complete(audio_url)
+    Song -> Song : status = COMPLETED, file_url = audio_url
+
+    User -> View : GET /api/generation-status/ (JS polls every 3 s)
+    View --> User : { status: "Completed" }
+    note over User : Status bar -> "Ready!"
+end
+
+@enduml

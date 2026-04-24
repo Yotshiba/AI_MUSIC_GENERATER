@@ -1,0 +1,236 @@
+@startuml AI_Music_Generator_Class_Diagram
+skinparam classBackgroundColor #FFFFFF
+skinparam classBorderColor #888888
+skinparam classArrowColor #444444
+skinparam classHeaderBackgroundColor #EEEEEE
+skinparam shadowing false
+skinparam linetype ortho
+skinparam nodesep 60
+skinparam ranksep 80
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+
+' ── COLOUR DEFINITIONS ────────────────────────────────────────────────────────
+skinparam class {
+    BackgroundColor<<Model>>      #dbeafe
+    BorderColor<<Model>>          #3b82f6
+    FontColor<<Model>>            #1e3a5f
+    HeaderBackgroundColor<<Model>> #bfdbfe
+
+    BackgroundColor<<Controller>> #dcfce7
+    BorderColor<<Controller>>     #22c55e
+    FontColor<<Controller>>       #14532d
+    HeaderBackgroundColor<<Controller>> #bbf7d0
+
+    BackgroundColor<<Service>>    #ffedd5
+    BorderColor<<Service>>        #f97316
+    FontColor<<Service>>          #7c2d12
+    HeaderBackgroundColor<<Service>> #fed7aa
+
+    BackgroundColor<<View>>       #fee2e2
+    BorderColor<<View>>           #ef4444
+    FontColor<<View>>             #7f1d1d
+    HeaderBackgroundColor<<View>> #fecaca
+
+    BackgroundColor<<Template>>   #f3e8ff
+    BorderColor<<Template>>       #a855f7
+    FontColor<<Template>>         #4a044e
+    HeaderBackgroundColor<<Template>> #e9d5ff
+}
+
+' ── MODEL LAYER (Blue) ────────────────────────────────────────────────────────
+package "Model Layer" <<Rectangle>> {
+
+class User <<Model>> {
+    +name : String
+    +email : String
+    +role : String
+}
+
+class Profile <<Model>> {
+    +token_balance : int
+    +can_afford(cost) : bool
+    +deduct(cost) : void
+    +refund(cost) : void
+}
+
+class TokenRecord <<Model>> {
+    +amount : int
+    +type : String
+}
+
+class Library <<Model>> {
+}
+
+class Folder <<Model>> {
+    +name : String
+}
+
+class Song <<Model>> {
+    +title : String
+    +genre : String
+    +mood : String
+    +occasion : String
+    +singer_style : String
+    +topic : String
+    +duration : int
+    +status : String
+    +provider : String
+    +file_url : String
+    +is_public : bool
+    +share_token : UUID
+    +created_at : DateTime
+    +updated_at : DateTime
+    +mark_complete(file_url) : void
+    +mark_failed() : void
+    +toggle_privacy() : void
+}
+
+class GenerationLog <<Model>> {
+    +title : String
+    +genre : String
+    +mood : String
+    +occasion : String
+    +singer_style : String
+    +topic : String
+    +provider : String
+    +status : String
+    +timestamp : DateTime
+}
+
+}
+
+' ── CONTROLLER LAYER (Green) ──────────────────────────────────────────────────
+package "Controller Layer" <<Rectangle>> {
+
+class GenerateMusicController <<Controller>> {
+    +request_generation(user, ...) : Song
+    +mark_complete(song_id, file_url) : Song
+    +mark_failed(song_id) : Song
+}
+
+class ManageLibraryController <<Controller>> {
+    +list_tracks(user, genre, mood, search) : List
+    +delete_track(song_id, user) : void
+    +toggle_privacy(song_id, user) : Song
+    +get_public_track(share_token) : Song
+}
+
+class AdminTokenController <<Controller>> {
+    +get_user_profile(user_id)
+    +set_token_balance(user_id, amount) : Profile
+    +list_users() : List
+}
+
+}
+
+' ── SERVICE LAYER — Strategy Pattern (Orange) ─────────────────────────────────
+package "Service Layer (Strategy Pattern)" <<Rectangle>> {
+
+abstract class MusicGenerationStrategy <<Service>> {
+    {abstract} +name() : str
+    {abstract} +generate(song) : str
+}
+
+class MockSongGeneratorStrategy <<Service>> {
+    +name() : str
+    +generate(song) : str
+}
+
+class SunoStrategy <<Service>> {
+    +name() : str
+    +generate(song) : str
+}
+
+class MurekaStrategy <<Service>> {
+    +name() : str
+    +generate(song) : str
+}
+
+}
+
+' ── VIEW LAYER (Red) ──────────────────────────────────────────────────────────
+package "View Layer" <<Rectangle>> {
+
+class "views.py" as views_py <<View>> {
+    +home_view()
+    +generate_view()
+    +library_view()
+    +delete_track_view()
+    +toggle_privacy_view()
+    +download_track_view()
+    +public_listen_view()
+    +generation_status_view()
+}
+
+class "tasks.py\n(django-q2 worker)" as tasks_py <<View>> {
+    +generate_music_task(song_id, provider)
+}
+
+class "admin.py\n(Django Admin)" as admin_py <<View>> {
+    +grant_tokens_action()
+    +UserAdmin
+    +ProfileAdmin
+    +TokenRecordAdmin
+    +LibraryAdmin
+    +FolderAdmin
+    +SongAdmin
+    +GenerationLogAdmin
+}
+
+}
+
+' ── TEMPLATE LAYER (Purple) ───────────────────────────────────────────────────
+package "Template Layer" <<Rectangle>> {
+
+class "base.html" as base_html <<Template>> {
+    nav, status-bar, mini-player, theme-toggle
+}
+
+class "generate.html" as generate_html <<Template>> {
+    6-field generation form
+}
+
+class "library.html" as library_html <<Template>> {
+    track list, play/delete/privacy actions
+}
+
+class "public_listen.html" as public_listen_html <<Template>> {
+    public share page, no auth
+}
+
+}
+
+' ── RELATIONSHIPS ─────────────────────────────────────────────────────────────
+User "1" o-- "1" Profile : has
+User "1" o-- "1" Library : has
+User "1" o-- "*" Song : owns
+User "1" o-- "*" TokenRecord : records
+User "1" o-- "*" GenerationLog : logged
+Library "1" o-- "*" Folder : contains
+Folder "1" o-- "*" Song : groups
+Song "1" o-- "*" GenerationLog : linked
+
+GenerateMusicController --> Profile : deduct / refund
+GenerateMusicController --> Song : create / update status
+GenerateMusicController --> GenerationLog : create / update
+ManageLibraryController --> Song : read / delete / toggle
+AdminTokenController --> Profile : read / set balance
+AdminTokenController --> TokenRecord : create
+
+MusicGenerationStrategy <|-- MockSongGeneratorStrategy : implements
+MusicGenerationStrategy <|-- SunoStrategy : implements
+MusicGenerationStrategy <|-- MurekaStrategy : implements
+
+views_py --> GenerateMusicController : delegates UC-01
+views_py --> ManageLibraryController : delegates UC-02
+views_py ..> tasks_py : async dispatch
+tasks_py --> GenerateMusicController : mark_complete / mark_failed
+tasks_py --> MusicGenerationStrategy : generate
+admin_py --> AdminTokenController : delegates UC-03
+views_py ..> base_html : renders
+views_py ..> generate_html : renders
+views_py ..> library_html : renders
+views_py ..> public_listen_html : renders
+
+@enduml

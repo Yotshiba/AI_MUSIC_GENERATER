@@ -1,0 +1,63 @@
+@startuml UC01_Failure_Path
+skinparam sequenceArrowThickness 2
+skinparam sequenceGroupBorderColor #888888
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+' Colour legend:
+'   Actor / User  — Green  (#bbf7d0 / #22c55e)  — Controller layer colour
+'   View Layer    — Red    (#fecaca / #ef4444)
+'   Controller    — Green  (#bbf7d0 / #22c55e)
+'   Model Layer   — Blue   (#bfdbfe / #3b82f6)
+'   Service Layer — Orange (#fed7aa / #f97316)
+'   External API  — Gray   (#e5e7eb / #9ca3af)
+
+skinparam actor {
+    BackgroundColor #bbf7d0
+    BorderColor #22c55e
+    FontColor #14532d
+}
+skinparam participant {
+    BackgroundColor #FFFFFF
+    BorderColor #888888
+}
+
+actor "User (Browser)" as User
+participant "views.py" as View #fecaca
+participant "django-q2 Worker" as Queue #fecaca
+participant "Strategy (Suno / Mock)" as Strategy #fed7aa
+participant "External AI API" as API #e5e7eb
+participant "GenerateMusicController" as Ctrl #bbf7d0
+participant "Song (Model)" as Song #bfdbfe
+participant "GenerationLog (Model)" as Log #bfdbfe
+participant "Profile (Model)" as Profile #bfdbfe
+
+note over Queue : Background task running...
+
+Queue -> Strategy : strategy.generate(song)
+Strategy -> API : POST /api/v1/generate
+API --> Strategy : { taskId: "xyz" }
+
+loop Poll (poll_until)
+    Strategy -> API : GET record-info?taskId=xyz
+    API --> Strategy : { status: "FAILED" }
+end
+
+Strategy --> Queue : raise RuntimeError("generation failed")
+
+note over Queue : except Exception caught in tasks.py
+
+Queue -> Ctrl : mark_failed(song.id)
+
+note over Ctrl : @transaction.atomic
+
+Ctrl -> Song : song.mark_failed()
+Song -> Song : status = FAILED
+Ctrl -> Log : GenerationLog.update(status=FAILED)
+Ctrl -> Profile : profile.refund(1 token)
+Profile -> Profile : token_balance += 1
+
+User -> View : GET /api/generation-status/ (JS polls)
+View --> User : { status: "Failed" }
+note over User : Status bar -> "Failed" - token refunded
+
+@enduml
