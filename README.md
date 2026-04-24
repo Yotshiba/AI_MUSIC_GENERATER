@@ -384,22 +384,17 @@ music/
     seed_and_demo.py         # Demo seed data for all 3 use cases
 
 templates/
-  registration/login.html    # Login page with username + Google OAuth button
+  account/login.html         # Custom allauth login page (split-screen redesign)
+  registration/login.html    # Fallback login page (unused — allauth takes precedence)
 ```
 
 ---
 
 ## Class Diagram
 
-The diagram is organized by the **MVT + Controller + Strategy** architecture layers. Each layer is colour-coded.
+Organized by the **MVT + Controller + Strategy** architecture layers. Colour coding: 🟦 Model · 🟩 Controller · 🟧 Service/Strategy · 🟥 View · 🟪 Template
 
-| Layer | Colour |
-|-------|--------|
-| 🟦 Model | Blue |
-| 🟩 Controller | Green |
-| 🟧 Service / Strategy | Orange |
-| 🟥 View | Red |
-| 🟪 Template | Purple |
+![Class Diagram](diagrams/AI_Music_Generator_Class_Diagram.png)
 
 ---
 
@@ -407,11 +402,11 @@ The diagram is organized by the **MVT + Controller + Strategy** architecture lay
 
 ### UC-01 — Generate Music (Happy Path)
 
-![UC-01 Happy Path Sequence Diagram](diagrams/UC01_Happy_Path.png)
+![UC-01 Happy Path](diagrams/UC01_Happy_Path.png)
 
 ### UC-01 — Generate Music (Failure / Timeout Path)
 
-![UC-01 Failure Path Sequence Diagram](diagrams/UC01_Failure_Path.png)
+![UC-01 Failure Path](diagrams/UC01_Failure_Path.png)
 
 ---
 
