@@ -201,10 +201,13 @@ music/
     manage_library.py        # UC-02: list, delete, toggle privacy
     admin_token.py           # UC-03: set balance, list users
   services/                  # Strategy pattern for AI providers
-    base.py                  # Abstract MusicGenerationStrategy
+    base.py                  # Abstract MusicGenerationStrategy (ABC)
+    mock.py                  # Mock strategy (offline, deterministic)
     mureka.py                # Mureka API implementation
     suno.py                  # Suno API implementation
+    utils.py                 # Shared poll_until() utility
     __init__.py              # Provider registry + get_strategy()
+  signals.py                 # post_save signal: auto-create Profile + Library on User creation
   tasks.py                   # django-q2 background task (async generation)
   profanity.py               # Bad-word filter (REQ-5.2.1)
   views.py                   # Django view functions
@@ -222,6 +225,146 @@ music/
 
 templates/
   registration/login.html    # Login page with username + Google OAuth button
+```
+
+---
+
+## Class Diagram
+
+The diagram is organized by the **MVT + Controller + Strategy** architecture layers.
+
+```mermaid
+classDiagram
+    %% ── MODEL LAYER ─────────────────────────────────────────────────────────
+    class User {
+        +String name
+        +String email
+        +String role
+    }
+    class Profile {
+        +int token_balance
+        +can_afford(cost) bool
+        +deduct(cost) void
+        +refund(cost) void
+    }
+    class TokenRecord {
+        +int amount
+        +String type
+    }
+    class Library {
+    }
+    class Folder {
+        +String name
+    }
+    class Song {
+        +String title
+        +String genre
+        +String mood
+        +String occasion
+        +String singer_style
+        +String topic
+        +int duration
+        +String status
+        +String provider
+        +String file_url
+        +bool is_public
+        +UUID share_token
+        +mark_complete(url) void
+        +mark_failed() void
+        +toggle_privacy() void
+    }
+    class GenerationLog {
+        +String title
+        +String genre
+        +String mood
+        +String status
+    }
+
+    %% ── CONTROLLER LAYER ────────────────────────────────────────────────────
+    class GenerateMusicController {
+        +request_generation(user, ...) Song
+        +mark_complete(song_id, url) Song
+        +mark_failed(song_id) Song
+    }
+    class ManageLibraryController {
+        +get_library(user) List
+        +delete_song(user, song_id) void
+        +toggle_privacy(user, song_id) Song
+    }
+    class AdminTokenController {
+        +list_users() List
+        +set_balance(user_id, amount) void
+    }
+
+    %% ── SERVICE LAYER — Strategy Pattern ────────────────────────────────────
+    class MusicGenerationStrategy {
+        <<abstract>>
+        +name() str
+        +generate(song) str
+    }
+    class MockSongGeneratorStrategy {
+        +name() str
+        +generate(song) str
+    }
+    class SunoStrategy {
+        +name() str
+        +generate(song) str
+    }
+    class MurekaStrategy {
+        +name() str
+        +generate(song) str
+    }
+
+    %% ── TEMPLATE LAYER ──────────────────────────────────────────────────────
+    class base_html["base.html (Template)"] {
+        nav, status-bar, mini-player, theme-toggle
+    }
+    class generate_html["generate.html (Template)"] {
+        6-field generation form
+    }
+    class library_html["library.html (Template)"] {
+        track list, play/delete/privacy actions
+    }
+    class public_listen_html["public_listen.html (Template)"] {
+        public share page (no auth)
+    }
+
+    %% ── VIEW LAYER ──────────────────────────────────────────────────────────
+    class views_py["views.py (View)"] {
+        +generate_view()
+        +library_view()
+        +public_listen_view()
+        +generation_status_api()
+        +download_track_view()
+    }
+
+    %% ── RELATIONSHIPS ───────────────────────────────────────────────────────
+    User "1" --o "1" Profile : has
+    User "1" --o "1" Library : has
+    User "1" --o "*" Song : owns
+    User "1" --o "*" TokenRecord : records
+    Library "1" --o "*" Folder : contains
+    Folder "1" --o "*" Song : groups
+    Song "1" --o "*" GenerationLog : logged_in
+
+    GenerateMusicController --> Profile : deduct / refund
+    GenerateMusicController --> Song : create / update status
+    GenerateMusicController --> GenerationLog : create
+    ManageLibraryController --> Song : read / delete / toggle
+    AdminTokenController --> Profile : read / set balance
+    AdminTokenController --> TokenRecord : create
+
+    MusicGenerationStrategy <|-- MockSongGeneratorStrategy : implements
+    MusicGenerationStrategy <|-- SunoStrategy : implements
+    MusicGenerationStrategy <|-- MurekaStrategy : implements
+
+    views_py --> GenerateMusicController : delegates UC-01
+    views_py --> ManageLibraryController : delegates UC-02
+    views_py --> AdminTokenController : delegates UC-03
+    views_py ..> base_html : renders
+    views_py ..> generate_html : renders
+    views_py ..> library_html : renders
+    views_py ..> public_listen_html : renders
 ```
 
 ---
@@ -273,7 +416,13 @@ Song statuses: `Draft → Generating → Completed / Failed`
 python manage.py test
 ```
 
-> Test suite is a placeholder (`music/tests.py`). Unit tests for controllers and views are a planned next step.
+The test suite covers the Strategy Pattern (20 tests):
+- Strategy interface (ABC, inheritance, registry)
+- Mock strategy (deterministic output, no network)
+- Suno strategy (task submission, polling, failure handling)
+- Strategy selection (env-var override, case-insensitive lookup)
+
+All 20 tests pass.
 
 ---
 
