@@ -243,35 +243,28 @@ The diagram is organized by the **MVT + Controller + Strategy** architecture lay
 
 ```mermaid
 classDiagram
-    %% ── COLOUR DEFINITIONS ───────────────────────────────────────────────────
-    classDef modelStyle      fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    classDef controllerStyle fill:#dcfce7,stroke:#22c55e,color:#14532d
-    classDef serviceStyle    fill:#ffedd5,stroke:#f97316,color:#7c2d12
-    classDef viewStyle       fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
-    classDef templateStyle   fill:#f3e8ff,stroke:#a855f7,color:#4a044e
-
     %% ── MODEL LAYER (Blue) ───────────────────────────────────────────────────
-    class User:::modelStyle {
+    class User {
         +String name
         +String email
         +String role
     }
-    class Profile:::modelStyle {
+    class Profile {
         +int token_balance
         +can_afford(cost) bool
         +deduct(cost) void
         +refund(cost) void
     }
-    class TokenRecord:::modelStyle {
+    class TokenRecord {
         +int amount
         +String type
     }
-    class Library:::modelStyle {
+    class Library {
     }
-    class Folder:::modelStyle {
+    class Folder {
         +String name
     }
-    class Song:::modelStyle {
+    class Song {
         +String title
         +String genre
         +String mood
@@ -288,7 +281,7 @@ classDiagram
         +mark_failed() void
         +toggle_privacy() void
     }
-    class GenerationLog:::modelStyle {
+    class GenerationLog {
         +String title
         +String genre
         +String mood
@@ -296,42 +289,42 @@ classDiagram
     }
 
     %% ── CONTROLLER LAYER (Green) ─────────────────────────────────────────────
-    class GenerateMusicController:::controllerStyle {
+    class GenerateMusicController {
         +request_generation(user, ...) Song
         +mark_complete(song_id, url) Song
         +mark_failed(song_id) Song
     }
-    class ManageLibraryController:::controllerStyle {
+    class ManageLibraryController {
         +get_library(user) List
         +delete_song(user, song_id) void
         +toggle_privacy(user, song_id) Song
     }
-    class AdminTokenController:::controllerStyle {
+    class AdminTokenController {
         +list_users() List
         +set_balance(user_id, amount) void
     }
 
     %% ── SERVICE LAYER — Strategy Pattern (Orange) ────────────────────────────
-    class MusicGenerationStrategy:::serviceStyle {
+    class MusicGenerationStrategy {
         <<abstract>>
         +name() str
         +generate(song) str
     }
-    class MockSongGeneratorStrategy:::serviceStyle {
+    class MockSongGeneratorStrategy {
         +name() str
         +generate(song) str
     }
-    class SunoStrategy:::serviceStyle {
+    class SunoStrategy {
         +name() str
         +generate(song) str
     }
-    class MurekaStrategy:::serviceStyle {
+    class MurekaStrategy {
         +name() str
         +generate(song) str
     }
 
     %% ── VIEW LAYER (Red) ─────────────────────────────────────────────────────
-    class views_py["views.py"]:::viewStyle {
+    class views_py["views.py"] {
         +generate_view()
         +library_view()
         +public_listen_view()
@@ -340,16 +333,16 @@ classDiagram
     }
 
     %% ── TEMPLATE LAYER (Purple) ──────────────────────────────────────────────
-    class base_html["base.html"]:::templateStyle {
+    class base_html["base.html"] {
         nav, status-bar, mini-player, theme-toggle
     }
-    class generate_html["generate.html"]:::templateStyle {
+    class generate_html["generate.html"] {
         6-field generation form
     }
-    class library_html["library.html"]:::templateStyle {
+    class library_html["library.html"] {
         track list, play/delete/privacy actions
     }
-    class public_listen_html["public_listen.html"]:::templateStyle {
+    class public_listen_html["public_listen.html"] {
         public share page, no auth
     }
 
@@ -380,6 +373,19 @@ classDiagram
     views_py ..> generate_html : renders
     views_py ..> library_html : renders
     views_py ..> public_listen_html : renders
+
+    %% ── APPLY COLOURS ────────────────────────────────────────────────────────
+    classDef modelStyle      fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
+    classDef controllerStyle fill:#dcfce7,stroke:#22c55e,color:#14532d
+    classDef serviceStyle    fill:#ffedd5,stroke:#f97316,color:#7c2d12
+    classDef viewStyle       fill:#fee2e2,stroke:#ef4444,color:#7f1d1d
+    classDef templateStyle   fill:#f3e8ff,stroke:#a855f7,color:#4a044e
+
+    class User,Profile,TokenRecord,Library,Folder,Song,GenerationLog modelStyle
+    class GenerateMusicController,ManageLibraryController,AdminTokenController controllerStyle
+    class MusicGenerationStrategy,MockSongGeneratorStrategy,SunoStrategy,MurekaStrategy serviceStyle
+    class views_py viewStyle
+    class base_html,generate_html,library_html,public_listen_html templateStyle
 ```
 
 ---
