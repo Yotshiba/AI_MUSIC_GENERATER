@@ -473,15 +473,30 @@
 
   function showPlayer(url, title, startTime, paused, volume) {
     mpTitle.textContent = title;
-    if (audio.src !== url) { audio.src = url; }
+    var targetTime = (typeof startTime === 'number') ? startTime : 0;
+    var srcChanged = (audio.src !== url);
+    if (srcChanged) { audio.src = url; }
     if (volume !== undefined) { audio.volume = volume; }
     player.style.display = 'flex';
-    if (startTime && audio.readyState >= 1) { audio.currentTime = startTime; }
-    else if (startTime) {
-      audio.addEventListener('loadedmetadata', function handler() {
-        audio.currentTime = startTime;
-        audio.removeEventListener('loadedmetadata', handler);
-      });
+    if (srcChanged) {
+      /* New track — always seek to targetTime (usually 0) after load */
+      if (audio.readyState >= 1) {
+        audio.currentTime = targetTime;
+      } else {
+        audio.addEventListener('loadedmetadata', function handler() {
+          audio.currentTime = targetTime;
+          audio.removeEventListener('loadedmetadata', handler);
+        });
+      }
+    } else if (targetTime > 0) {
+      /* Same track, seek to a specific resume position */
+      if (audio.readyState >= 1) { audio.currentTime = targetTime; }
+      else {
+        audio.addEventListener('loadedmetadata', function handler() {
+          audio.currentTime = targetTime;
+          audio.removeEventListener('loadedmetadata', handler);
+        });
+      }
     }
     if (!paused) { audio.play().catch(function(){}); }
     updateNavButtons();

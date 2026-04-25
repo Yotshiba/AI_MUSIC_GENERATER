@@ -2,168 +2,345 @@
 {% block title %}My Library — AI Music{% endblock %}
 
 {% block content %}
-<h1>My Library</h1>
+<style>
+/* ── Library Page ────────────────────────────────────── */
+.lib-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;
+}
+.lib-title { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.03em; }
+.lib-count {
+  font-size: 0.78rem; color: var(--muted); background: var(--surface);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 0.2rem 0.65rem; margin-left: 0.5rem; vertical-align: middle;
+}
 
-<!-- Filter / Search Bar (UC-02 A2) -->
-<div class="card" style="padding:1rem 1.5rem; margin-bottom:1rem;">
-  <form method="get" action="" style="display:flex; gap:0.75rem; flex-wrap:wrap; align-items:flex-end;">
-    <div>
-      <label style="margin-top:0;">Search</label>
-      <input type="text" name="search" value="{{ search }}" placeholder="Song title…" style="width:160px;">
-    </div>
-    <div>
-      <label style="margin-top:0;">Genre</label>
-      <input type="text" name="genre" value="{{ genre }}" placeholder="e.g. Jazz" style="width:120px;">
-    </div>
-    <div>
-      <label style="margin-top:0;">Mood</label>
-      <input type="text" name="mood" value="{{ mood }}" placeholder="e.g. Chill" style="width:120px;">
-    </div>
-    <button type="submit" class="btn btn-secondary" style="padding:0.45rem 0.9rem; font-size:0.85rem;">Filter</button>
-    {% if has_filters %}
-    <a href="{% url 'music:library' %}" class="btn btn-secondary" style="padding:0.45rem 0.9rem; font-size:0.85rem;">✕ Clear</a>
-    {% endif %}
-  </form>
+/* ── Filter Bar ──────────────────────────────────────── */
+.filter-bar {
+  display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 0.7rem 1rem; margin-bottom: 1.75rem;
+}
+.filter-bar input {
+  background: var(--input-bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 8px; padding: 0.42rem 0.75rem; font-size: 0.85rem;
+  transition: border-color 0.15s;
+}
+.filter-bar input:focus { outline: none; border-color: var(--accent); }
+.filter-bar input::placeholder { color: var(--muted); }
+
+/* ── In-Progress Banner ──────────────────────────────── */
+.ip-section { margin-bottom: 2rem; }
+.section-label {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted); margin-bottom: 0.65rem;
+}
+.ip-list { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.ip-card {
+  display: flex; align-items: center; gap: 0.65rem;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.6rem 0.9rem;
+}
+.ip-art {
+  width: 38px; height: 38px; border-radius: 6px; flex-shrink: 0;
+  background: linear-gradient(135deg, #2d1f5e, #1a1535);
+  display: flex; align-items: center; justify-content: center;
+}
+.ip-title { font-size: 0.85rem; font-weight: 600; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-meta  { font-size: 0.72rem; color: var(--muted); margin-top: 0.1rem; display: flex; align-items: center; gap: 0.35rem; }
+
+/* ── Track Card Grid ─────────────────────────────────── */
+.tracks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 1rem;
+}
+
+/* ── Individual Track Card ───────────────────────────── */
+.track-card {
+  background: var(--surface); border-radius: 12px; overflow: hidden;
+  transition: background 0.15s, transform 0.15s; position: relative;
+}
+.track-card:hover { background: var(--surface2); transform: translateY(-3px); }
+
+/* Gradient album art */
+.track-art {
+  width: 100%; aspect-ratio: 1;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; overflow: hidden; flex-shrink: 0;
+}
+.track-art svg { opacity: 0.4; transition: opacity 0.15s; }
+.track-card:hover .track-art svg { opacity: 0.25; }
+
+/* nth-child gradient cycle (8 colours) */
+.track-card:nth-child(8n+1) .track-art { background: linear-gradient(145deg, #3b1d7c, #6d28d9); }
+.track-card:nth-child(8n+2) .track-art { background: linear-gradient(145deg, #0c3a6e, #0369a1); }
+.track-card:nth-child(8n+3) .track-art { background: linear-gradient(145deg, #6b2100, #c2410c); }
+.track-card:nth-child(8n+4) .track-art { background: linear-gradient(145deg, #064e3b, #0d9488); }
+.track-card:nth-child(8n+5) .track-art { background: linear-gradient(145deg, #500724, #be185d); }
+.track-card:nth-child(8n+6) .track-art { background: linear-gradient(145deg, #1e1b4b, #4338ca); }
+.track-card:nth-child(8n+7) .track-art { background: linear-gradient(145deg, #172554, #2563eb); }
+.track-card:nth-child(8n)   .track-art { background: linear-gradient(145deg, #4a044e, #86198f); }
+
+/* Play overlay on hover */
+.play-overlay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.38);
+  opacity: 0; transition: opacity 0.15s;
+}
+.track-card:hover .play-overlay { opacity: 1; }
+.play-circle {
+  width: 50px; height: 50px;
+  background: var(--accent);
+  border: none; border-radius: 50%; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  transition: transform 0.12s, background 0.12s;
+}
+.play-circle:hover { transform: scale(1.1); background: #6d28d9; }
+
+/* Track info */
+.track-info { padding: 0.85rem 0.85rem 0.5rem; }
+.track-name {
+  font-size: 0.9rem; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--text); margin-bottom: 0.25rem;
+}
+.track-meta {
+  font-size: 0.75rem; color: var(--muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.track-provider {
+  display: inline-block; font-size: 0.65rem; font-weight: 600;
+  background: var(--surface2); color: var(--accent-light);
+  border: 1px solid var(--border); border-radius: 999px;
+  padding: 0.05rem 0.4rem; margin-top: 0.3rem;
+}
+
+/* Action row */
+.track-actions {
+  padding: 0 0.85rem 0.85rem;
+  display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;
+}
+.ibt {
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  color: var(--muted); cursor: pointer; padding: 0.25rem 0.45rem;
+  font-size: 0.78rem; transition: color 0.12s, border-color 0.12s, background 0.12s;
+  line-height: 1; text-decoration: none; display: inline-flex; align-items: center; gap: 0.2rem;
+}
+.ibt:hover           { color: var(--text); border-color: var(--border); background: var(--surface); }
+.ibt.danger:hover    { color: #f87171; border-color: #7f1d1d; background: #1e0a0a; }
+.ibt.accent:hover    { color: var(--accent-light); border-color: var(--accent); }
+.ibt.public-badge    { color: #6ee7b7; border-color: #065f46; }
+.ibt.private-badge   { color: var(--muted); border-color: var(--border); }
+
+.fmt-sel {
+  background: var(--input-bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 5px; padding: 0.2rem 0.3rem; font-size: 0.72rem; cursor: pointer;
+}
+
+/* Share row */
+.share-row {
+  padding: 0 0.85rem 0.7rem;
+  font-size: 0.7rem; color: var(--muted);
+  display: flex; align-items: center; gap: 0.3rem; flex-wrap: wrap;
+}
+.share-row code { color: var(--accent-light); font-size: 0.68rem; word-break: break-all; }
+
+/* ── Pagination ──────────────────────────────────────── */
+.pagination {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.5rem; margin-top: 2rem; flex-wrap: wrap;
+}
+.pagination a, .pagination .pg-current {
+  padding: 0.4rem 0.85rem; border-radius: 8px;
+  font-size: 0.85rem; text-decoration: none;
+  border: 1px solid var(--border); color: var(--muted);
+}
+.pagination a { color: var(--text); transition: border-color 0.12s, background 0.12s; }
+.pagination a:hover { border-color: var(--accent); background: var(--surface2); }
+.pagination .pg-current { border-color: var(--accent); color: var(--accent-light); background: var(--surface2); }
+
+/* ── Empty State ─────────────────────────────────────── */
+.lib-empty { text-align: center; padding: 5rem 1rem; }
+.lib-empty .e-icon { font-size: 3.5rem; margin-bottom: 1.25rem; line-height: 1; }
+.lib-empty h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.5rem; }
+.lib-empty p  { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+@media (max-width: 480px) {
+  .tracks-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.75rem; }
+}
+</style>
+
+<!-- Header -->
+<div class="lib-header">
+  <div>
+    <span class="lib-title">My Library</span>
+    <span class="lib-count">{{ page_obj.paginator.count }} track{{ page_obj.paginator.count|pluralize }}</span>
+  </div>
+  <a href="{% url 'music:generate' %}" class="btn btn-primary" style="font-size:0.85rem; padding:0.5rem 1rem;">+ Generate</a>
 </div>
 
+<!-- Filter Bar -->
+<form method="get" action="" class="filter-bar">
+  <input type="text" name="search" value="{{ search }}" placeholder="🔍  Search titles…" style="flex:1; min-width:130px;">
+  <input type="text" name="genre"  value="{{ genre  }}" placeholder="Genre" style="width:100px;">
+  <input type="text" name="mood"   value="{{ mood   }}" placeholder="Mood"  style="width:100px;">
+  <button type="submit" class="btn btn-secondary" style="padding:0.42rem 0.85rem; font-size:0.83rem;">Filter</button>
+  {% if has_filters %}
+  <a href="{% url 'music:library' %}" class="btn btn-secondary" style="padding:0.42rem 0.85rem; font-size:0.83rem;">✕ Clear</a>
+  {% endif %}
+</form>
+
 {% if page_obj.paginator.count %}
-<div class="card" style="padding:0; overflow:hidden;">
-  <table>
-    <thead>
-      <tr>
-        <th>Title</th>
-        <th>Genre</th>
-        <th>Mood</th>
-        <th>Duration</th>
-        <th>Privacy</th>
-        <th>Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for track in tracks %}
-      <tr>
-        <td>
-          <strong>{{ track.title }}</strong>
-          {% if track.provider %}
-            <span style="font-size:0.72rem; background:var(--tag-bg); color:var(--accent-badge);
-                         padding:0.1rem 0.45rem; border-radius:999px; margin-left:0.35rem;">
-              {{ track.provider }}
-            </span>
+
+<!-- In-Progress Section (hidden by JS if empty) -->
+<div id="ip-section" class="ip-section">
+  <div class="section-label">In Progress</div>
+  <div class="ip-list" id="ip-list">
+    {% for track in tracks %}{% if track.status == 'Queued' or track.status == 'Generating' or track.status == 'Failed' %}
+    <div class="ip-card">
+      <div class="ip-art">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+        </svg>
+      </div>
+      <div>
+        <div class="ip-title" title="{{ track.title }}">{{ track.title }}</div>
+        <div class="ip-meta">
+          {% if track.status == 'Queued' %}<span class="badge-queued">Queued…</span>
+          {% elif track.status == 'Generating' %}<span class="badge-generating">Generating…</span>
+          {% elif track.status == 'Failed' %}<span class="badge-failed">Failed</span>
           {% endif %}
-          {% if track.status == 'Queued' %}
-            <span class="badge-queued" style="margin-left:0.35rem;">Queued…</span>
-          {% elif track.status == 'Generating' %}
-            <span class="badge-generating" style="margin-left:0.35rem;">Generating…</span>
-          {% elif track.status == 'Failed' %}
-            <span class="badge-failed" style="margin-left:0.35rem;">Failed</span>
-          {% endif %}
-          {% if track.is_public %}
-            <div class="share-url">
-              /listen/{{ track.share_token }}/
-              <button class="copy-link-btn btn btn-secondary"
-                      data-url="{{ request.scheme }}://{{ request.get_host }}/listen/{{ track.share_token }}/"
-                      style="padding:0.1rem 0.45rem; font-size:0.7rem; margin-left:0.35rem;">
-                Copy Link
-              </button>
-            </div>
-          {% endif %}
-        </td>
-        <td>{{ track.genre|default:"—" }}</td>
-        <td>{{ track.mood|default:"—" }}</td>
-        <td>{% if track.duration %}{{ track.duration }}s{% else %}—{% endif %}</td>
-        <td>
-          {% if track.is_public %}
-            <span class="badge-public">Public</span>
-          {% else %}
-            <span class="badge-private">Private</span>
-          {% endif %}
-        </td>
-        <td style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-          {% if track.status == 'Completed' and track.file_url %}
-            <button class="btn btn-secondary play-btn"
-                    data-url="{{ track.file_url }}"
-                    data-title="{{ track.title }}"
-                    data-index="{{ forloop.counter0 }}"
-                    style="padding:0.3rem 0.7rem; font-size:0.8rem;">
-              ▶ Play
-            </button>
-            <!-- Format selector + download (REQ-4.3.6) -->
-            <span style="display:inline-flex; align-items:center; gap:0.25rem;">
-              <select class="fmt-select" data-pk="{{ track.pk }}"
-                      style="padding:0.28rem 0.4rem; font-size:0.78rem; border-radius:6px;
-                             background:var(--input-bg); color:var(--text); border:1px solid var(--border);"
-                      title="Choose download format (.mp3/.wav/.flac). File content is the original provider format.">
-                <option value="mp3">.mp3</option>
-                <option value="wav">.wav</option>
-                <option value="flac">.flac</option>
-              </select>
-              <a class="btn btn-secondary download-btn"
-                 href="{% url 'music:download_track' track.pk %}?format=mp3"
-                 data-base="{% url 'music:download_track' track.pk %}"
-                 style="padding:0.3rem 0.7rem; font-size:0.8rem;">
-                ⬇ Download
-              </a>
-            </span>
-          {% endif %}
-          <form method="post" action="{% url 'music:toggle_privacy' track.pk %}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-secondary" style="padding:0.3rem 0.7rem; font-size:0.8rem;">
-              {% if track.is_public %}Make Private{% else %}Make Public{% endif %}
-            </button>
-          </form>
-          <form class="delete-form" method="post"
-                action="{% url 'music:delete_track' track.pk %}"
-                data-title="{{ track.title }}">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-danger" style="padding:0.3rem 0.7rem; font-size:0.8rem;">
-              Delete
-            </button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+          {% if track.provider %}<span>{{ track.provider }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}{% endfor %}
+  </div>
+</div>
+
+<!-- Completed Tracks Grid -->
+<div class="section-label">Tracks</div>
+<div class="tracks-grid" id="tracks-grid">
+  {% for track in tracks %}
+  {% if track.status == 'Completed' and track.file_url %}
+  <div class="track-card">
+
+    <!-- Album art + play overlay -->
+    <div class="track-art">
+      <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+      </svg>
+      <div class="play-overlay">
+        <button class="play-circle play-btn"
+                data-url="{{ track.file_url }}"
+                data-title="{{ track.title }}"
+                title="Play {{ track.title }}">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff"><polygon points="5,3 19,12 5,21"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="track-info">
+      <div class="track-name" title="{{ track.title }}">{{ track.title }}</div>
+      <div class="track-meta">{{ track.genre|default:"Unknown" }}{% if track.mood %} · {{ track.mood }}{% endif %}{% if track.duration %} · {{ track.duration }}s{% endif %}</div>
+      {% if track.provider %}<span class="track-provider">{{ track.provider }}</span>{% endif %}
+    </div>
+
+    <!-- Actions -->
+    <div class="track-actions">
+      <!-- Privacy toggle -->
+      <form method="post" action="{% url 'music:toggle_privacy' track.pk %}" style="display:contents;">
+        {% csrf_token %}
+        <button type="submit" class="ibt {% if track.is_public %}public-badge accent{% else %}private-badge{% endif %}"
+                title="{% if track.is_public %}Make private{% else %}Make public{% endif %}">
+          {% if track.is_public %}🔓 Public{% else %}🔒 Private{% endif %}
+        </button>
+      </form>
+      <!-- Format + download -->
+      <select class="fmt-sel fmt-select" data-pk="{{ track.pk }}" title="Download format">
+        <option value="mp3">.mp3</option>
+        <option value="wav">.wav</option>
+        <option value="flac">.flac</option>
+      </select>
+      <a class="ibt download-btn"
+         href="{% url 'music:download_track' track.pk %}?format=mp3"
+         data-base="{% url 'music:download_track' track.pk %}"
+         title="Download">⬇</a>
+      <!-- Delete -->
+      <form class="delete-form" method="post"
+            action="{% url 'music:delete_track' track.pk %}"
+            data-title="{{ track.title }}" style="display:contents;">
+        {% csrf_token %}
+        <button type="submit" class="ibt danger" title="Delete">🗑</button>
+      </form>
+    </div>
+
+    <!-- Share URL (if public) -->
+    {% if track.is_public %}
+    <div class="share-row">
+      <code>/listen/{{ track.share_token|truncatechars:14 }}</code>
+      <button class="copy-link-btn ibt"
+              data-url="{{ request.scheme }}://{{ request.get_host }}/listen/{{ track.share_token }}/"
+              style="font-size:0.68rem; padding:0.1rem 0.35rem;">Copy Link</button>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+  {% endfor %}
 </div>
 
 <!-- Pagination -->
 {% if page_obj.has_other_pages %}
-<div style="display:flex; justify-content:center; align-items:center; gap:1rem; margin-top:1rem; font-size:0.9rem;">
+<div class="pagination">
   {% if page_obj.has_previous %}
-    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if genre %}&genre={{ genre }}{% endif %}{% if mood %}&mood={{ mood }}{% endif %}"
-       class="btn btn-secondary" style="padding:0.3rem 0.75rem;">« Prev</a>
+    <a href="?page={{ page_obj.previous_page_number }}{% if search %}&search={{ search }}{% endif %}{% if genre %}&genre={{ genre }}{% endif %}{% if mood %}&mood={{ mood }}{% endif %}">« Prev</a>
   {% endif %}
-  <span style="color:var(--muted);">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+  <span class="pg-current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
   {% if page_obj.has_next %}
-    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if genre %}&genre={{ genre }}{% endif %}{% if mood %}&mood={{ mood }}{% endif %}"
-       class="btn btn-secondary" style="padding:0.3rem 0.75rem;">Next »</a>
+    <a href="?page={{ page_obj.next_page_number }}{% if search %}&search={{ search }}{% endif %}{% if genre %}&genre={{ genre }}{% endif %}{% if mood %}&mood={{ mood }}{% endif %}">Next »</a>
   {% endif %}
 </div>
 {% endif %}
 
 {% else %}
-<div class="card">
-  <div class="empty-state">
-    {% if has_filters %}
-    <div style="font-size:3rem; margin-bottom:1rem;">🔍</div>
-    <p style="font-size:1.1rem; font-weight:600; color:var(--text);">No tracks match your filters</p>
-    <p style="margin-top:0.5rem;">Try different keywords or clear the filters.</p>
-    <a href="{% url 'music:library' %}" class="btn btn-secondary"
-       style="display:inline-block; margin-top:1.25rem;">✕ Clear Filters</a>
-    {% else %}
-    <div style="font-size:3rem; margin-bottom:1rem;">🎵</div>
-    <p style="font-size:1.1rem; font-weight:600; color:var(--text);">Your library is empty</p>
-    <p style="margin-top:0.5rem;">No tracks yet. Start generating your first masterpiece!</p>
-    <a href="{% url 'music:generate' %}" class="btn btn-primary"
-       style="display:inline-block; margin-top:1.25rem;">+ Generate Your First Track</a>
-    {% endif %}
-  </div>
+<!-- Empty state -->
+<div class="lib-empty">
+  <div class="e-icon">{% if has_filters %}🔍{% else %}🎵{% endif %}</div>
+  {% if has_filters %}
+    <h2>No tracks match your filters</h2>
+    <p>Try different keywords or clear the filters.</p>
+    <a href="{% url 'music:library' %}" class="btn btn-secondary">✕ Clear Filters</a>
+  {% else %}
+    <h2>Your library is empty</h2>
+    <p>No tracks yet — start generating your first masterpiece!</p>
+    <a href="{% url 'music:generate' %}" class="btn btn-primary">+ Generate Your First Track</a>
+  {% endif %}
 </div>
 {% endif %}
 
-<!-- Embed playlist data for mini-player skip/prev (REQ-4.5.1) -->
 <script>
 (function() {
+  /* Hide in-progress section if it has no cards */
+  var ipList    = document.getElementById('ip-list');
+  var ipSection = document.getElementById('ip-section');
+  if (ipSection && ipList && ipList.children.length === 0) {
+    ipSection.style.display = 'none';
+  }
+
+  /* Hide "Tracks" label + grid if all page tracks are non-completed */
+  var grid = document.getElementById('tracks-grid');
+  if (grid && grid.children.length === 0) {
+    grid.style.display = 'none';
+    var label = grid.previousElementSibling;
+    if (label && label.classList.contains('section-label')) label.style.display = 'none';
+  }
+
+  /* Build playlist for mini-player prev/next (REQ-4.5.1) */
   var playlist = [
     {% for track in tracks %}{% if track.status == 'Completed' and track.file_url %}
     { url: "{{ track.file_url|escapejs }}", title: "{{ track.title|escapejs }}" },
@@ -173,18 +350,17 @@
     localStorage.setItem('mp_playlist', JSON.stringify(playlist));
   }
 
-  /* Wire format selector to download link (REQ-4.3.6) */
+  /* Wire format selector → download link (REQ-4.3.6) */
   document.querySelectorAll('.fmt-select').forEach(function(sel) {
-    var row   = sel.closest('td');
-    var dlBtn = row ? row.querySelector('.download-btn') : null;
+    var card  = sel.closest('.track-actions');
+    var dlBtn = card ? card.querySelector('.download-btn') : null;
     if (!dlBtn) return;
     sel.addEventListener('change', function() {
-      var base = dlBtn.getAttribute('data-base');
-      dlBtn.href = base + '?format=' + sel.value;
+      dlBtn.href = dlBtn.getAttribute('data-base') + '?format=' + sel.value;
     });
   });
 
-  /* Wire play buttons to set playlist index then trigger base.html handler */
+  /* Wire play buttons → set correct playlist index before base.html handler fires */
   document.querySelectorAll('.play-btn').forEach(function(btn, idx) {
     btn.addEventListener('click', function() {
       localStorage.setItem('mp_playlist_index', String(idx));
