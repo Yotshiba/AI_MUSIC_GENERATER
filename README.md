@@ -85,12 +85,55 @@ cp .env.example .env
 
 ### Google OAuth setup (optional)
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/) → APIs & Services → Credentials
-2. Create an **OAuth 2.0 Client ID** (Web application)
-3. Add authorised redirect URI: `http://localhost:8000/accounts/google/login/callback/`
-4. Paste the Client ID and Secret into `.env`
-5. In Django Admin → **Sites** → set domain to `localhost:8000`
-6. In Django Admin → **Social Applications** → add Google provider with those credentials
+> The app works fully without Google OAuth — email/password login is always available. The **Continue with Google** button only appears once a Social Application is configured in Django Admin.
+
+**Step 1 — Create OAuth credentials in Google Cloud Console**
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **Credentials**
+2. Click **Create Credentials** → **OAuth 2.0 Client ID**
+3. Application type: **Web application**
+4. Under **Authorised redirect URIs**, add:
+   ```
+   http://localhost:8000/accounts/google/login/callback/
+   ```
+5. Click **Create** — copy the **Client ID** and **Client Secret**
+
+**Step 2 — Enable required OAuth scopes (Google Cloud Console)**
+
+Go to **APIs & Services** → **OAuth consent screen**:
+- Add these scopes (minimum required):
+  - `.../auth/userinfo.email` — read the user's email address
+  - `.../auth/userinfo.profile` — read name and profile picture
+  - `openid` — required by allauth
+- User type: **External** is fine for development
+
+**Step 3 — Add credentials to `.env`**
+
+```
+GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-your-secret-here
+```
+
+**Step 4 — Fix the Sites record in Django Admin**
+
+1. Open `http://localhost:8000/admin/` → **Sites** → click the existing site
+2. Set both **Domain name** and **Display name** to: `localhost:8000`
+3. Save
+
+**Step 5 — Create the Social Application in Django Admin**
+
+1. Open `http://localhost:8000/admin/` → **Social Accounts** → **Social applications** → **Add**
+2. Fill in the fields:
+
+   | Field | Value |
+   |-------|-------|
+   | Provider | `Google` |
+   | Name | `Google` |
+   | Client id | *(paste Client ID from Step 1)* |
+   | Secret key | *(paste Client Secret from Step 1)* |
+   | Sites | Move `localhost:8000` → **Chosen sites** |
+
+3. Save — the **Continue with Google** button will now appear on the login page.
 
 ---
 

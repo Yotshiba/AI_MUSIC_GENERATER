@@ -360,6 +360,8 @@
         <button type="submit" class="btn-primary">Sign In</button>
       </form>
 
+      {% get_providers as socialaccount_providers %}
+      {% if socialaccount_providers %}
       <div class="divider"><hr><span>or</span><hr></div>
 
       <a href="{% provider_login_url 'google' %}" class="btn-google">
@@ -371,6 +373,7 @@
         </svg>
         Continue with Google
       </a>
+      {% endif %}
 
       <p class="hint">
         Don't have an account? <a href="{% url 'account_signup' %}">Sign up</a>
