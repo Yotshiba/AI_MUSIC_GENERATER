@@ -11,6 +11,15 @@
       document.documentElement.setAttribute('data-theme', t);
     })();
   </script>
+  <!-- IE11 detection: show blocking modal (SRS §5.6.2) -->
+  <script>
+    if (/*@cc_on!@*/false || !!document.documentMode) {
+      document.addEventListener('DOMContentLoaded', function() {
+        var m = document.getElementById('ie-block-modal');
+        if (m) m.style.display = 'flex';
+      });
+    }
+  </script>
   <style>
     :root {
       --bg: #0f0f13;
@@ -135,6 +144,7 @@
     /* ── Badges ──────────────────────────────────────────────────────── */
     .badge-public  { background: var(--public-bg);  color: var(--public-text);  padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
     .badge-private { background: var(--private-bg); color: var(--private-text); padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.75rem; }
+    .badge-queued     { background: #1e3a5f; color: #93c5fd; padding: 0.1rem 0.45rem; border-radius: 999px; font-size: 0.72rem; animation: pulse 2s infinite; }
     .badge-generating { background: #4c1d95; color: #e9d5ff; padding: 0.1rem 0.45rem; border-radius: 999px; font-size: 0.72rem; animation: pulse 1.5s infinite; }
     .badge-failed     { background: var(--danger-bg); color: var(--danger-text); padding: 0.1rem 0.45rem; border-radius: 999px; font-size: 0.72rem; }
 
@@ -143,29 +153,59 @@
     .empty-state a { color: var(--accent-badge); }
 
     /* ── Global Generation Status Bar ───────────────────────────────── */
-    #gen-status-bar {
-      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-      background: #4c1d95; color: #e9d5ff; font-size: 0.83rem;
-      text-align: center; padding: 0.45rem 1rem;
-    }
-    #gen-status-bar.error { background: #7f1d1d; color: #fca5a5; }
+    #gen-status-bar { display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 9999; background: #4c1d95; color: #e9d5ff; font-size: 0.83rem; text-align: center; padding: 0.45rem 1rem; }
+    #gen-status-bar.error  { background: #7f1d1d; color: #fca5a5; }
+    #gen-status-bar.queued { background: #1e3a5f; color: #93c5fd; }
 
     /* ── Mini Player ─────────────────────────────────────────────────── */
     #mini-player {
       display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 500;
       background: var(--nav-bg); border-top: 1px solid var(--border);
-      padding: 0.6rem 1.5rem; align-items: center; gap: 1rem;
+      padding: 0.6rem 1.5rem; align-items: center; gap: 0.75rem;
     }
     #mp-title {
       font-size: 0.83rem; color: var(--accent-light); min-width: 140px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 0;
     }
     #mp-audio { flex: 1; accent-color: var(--accent); min-width: 0; }
+    .mp-nav-btn {
+      background: none; border: 1px solid var(--border); color: var(--label);
+      border-radius: 6px; cursor: pointer; font-size: 1.1rem; flex-shrink: 0;
+      padding: 0.15rem 0.45rem; line-height: 1;
+    }
+    .mp-nav-btn:hover { border-color: var(--accent-light); color: var(--accent-light); }
+    .mp-nav-btn:disabled { opacity: 0.3; cursor: default; }
     #mp-close {
       background: none; border: none; color: var(--muted); cursor: pointer;
       font-size: 1.1rem; flex-shrink: 0; padding: 0.2rem;
     }
     #mp-close:hover { color: var(--text); }
+
+    /* ── IE Blocking Modal (SRS §5.6.2) ─────────────────────────────── */
+    #ie-block-modal {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.92);
+      z-index: 99999; align-items: center; justify-content: center; text-align: center;
+      font-family: system-ui, sans-serif; color: #e8e8f0;
+    }
+    #ie-block-modal .ie-box {
+      background: #1a1a24; border: 1px solid #7c3aed; border-radius: 16px;
+      padding: 2.5rem 3rem; max-width: 460px;
+    }
+    #ie-block-modal h2 { font-size: 1.4rem; margin-bottom: 0.75rem; color: #c4b5fd; }
+    #ie-block-modal p  { font-size: 0.95rem; color: #a0a0b8; line-height: 1.6; margin-bottom: 1rem; }
+    #ie-block-modal a  { color: #a78bfa; }
+
+    /* ── In-App Browser Banner (SRS §5.6.2) ─────────────────────────── */
+    #inapp-banner {
+      display: none; position: fixed; top: 0; left: 0; right: 0; z-index: 9998;
+      background: #92400e; color: #fef3c7; font-size: 0.85rem; text-align: center;
+      padding: 0.6rem 3rem 0.6rem 1rem;
+    }
+    #inapp-banner a { color: #fef3c7; font-weight: 700; text-decoration: underline; }
+    #inapp-close {
+      position: absolute; right: 0.75rem; top: 50%; transform: translateY(-50%);
+      background: none; border: none; color: #fef3c7; font-size: 1.1rem; cursor: pointer;
+    }
 
     /* ── Toast Notifications ─────────────────────────────────────────── */
     #toast-container {
@@ -205,6 +245,7 @@
       #mini-player { flex-direction: column; padding: 0.5rem 1rem; gap: 0.4rem; }
       #mp-audio { width: 100%; }
       #mp-title { min-width: unset; }
+      .mp-nav-btn { font-size: 1rem; }
       #toast-container { right: 0.75rem; left: 0.75rem; }
     }
     @media (min-width: 481px) and (max-width: 1024px) {
@@ -214,6 +255,30 @@
   </style>
 </head>
 <body>
+
+<!-- IE11 Blocking Modal (SRS §5.6.2) -->
+<div id="ie-block-modal">
+  <div class="ie-box">
+    <h2>⚠️ Browser Not Supported</h2>
+    <p>
+      Internet Explorer is not supported by AI Music Generator.<br>
+      Please open this page in a modern browser for the full experience.
+    </p>
+    <p>
+      <a href="https://www.google.com/chrome/" target="_blank">Google Chrome</a> &nbsp;·&nbsp;
+      <a href="https://www.mozilla.org/firefox/" target="_blank">Mozilla Firefox</a> &nbsp;·&nbsp;
+      <a href="https://www.microsoft.com/edge" target="_blank">Microsoft Edge</a>
+    </p>
+  </div>
+</div>
+
+<!-- In-App Browser Banner (SRS §5.6.2) -->
+<div id="inapp-banner">
+  🎵 Audio playback may not work inside this in-app browser.
+  <a href="javascript:void(0)" id="inapp-open-link">Open in external browser</a>
+  for the best experience.
+  <button id="inapp-close" title="Dismiss">✕</button>
+</div>
 
 <!-- Generation Status Bar (REQ-4.3.4) -->
 <div id="gen-status-bar"><span id="gen-status-text"></span></div>
@@ -257,8 +322,10 @@
 
 <!-- Mini Player (REQ-4.5.1, REQ-4.5.2) -->
 <div id="mini-player">
+  <button id="mp-prev" class="mp-nav-btn" title="Previous track" disabled>⏮</button>
   <span id="mp-title"></span>
   <audio id="mp-audio" controls></audio>
+  <button id="mp-next" class="mp-nav-btn" title="Next track" disabled>⏭</button>
   <button id="mp-close" title="Close player">✕</button>
 </div>
 
@@ -276,6 +343,40 @@
 
 <script>
 (function() {
+  /* ── In-App Browser Detection (SRS §5.6.2) ───────────────────── */
+  var ua = window.navigator.userAgent;
+  var isInApp = /Line\//i.test(ua) || /FBAN|FBAV/i.test(ua) ||
+                /Instagram/i.test(ua) || /Twitter(Android|iPhone)/i.test(ua);
+  if (isInApp) {
+    var banner = document.getElementById('inapp-banner');
+    var openLink = document.getElementById('inapp-open-link');
+    var closeBtn = document.getElementById('inapp-close');
+    if (banner) {
+      banner.style.display = 'block';
+      /* Adjust top nav position so it doesn't overlap the banner */
+      var nav = document.querySelector('nav');
+      if (nav) nav.style.top = banner.offsetHeight + 'px';
+    }
+    if (openLink) {
+      openLink.addEventListener('click', function() {
+        /* Attempt to open in system browser */
+        var dest = window.location.href;
+        if (/Line\//i.test(ua)) {
+          window.location.href = dest + (dest.indexOf('?') >= 0 ? '&' : '?') + 'openExternalBrowser=1';
+        } else {
+          window.open(dest, '_blank');
+        }
+      });
+    }
+    if (closeBtn) {
+      closeBtn.addEventListener('click', function() {
+        if (banner) banner.style.display = 'none';
+        var nav = document.querySelector('nav');
+        if (nav) nav.style.top = '';
+      });
+    }
+  }
+
   /* ── Theme Toggle ─────────────────────────────────────────────── */
   var html = document.documentElement;
   var themeBtn = document.getElementById('theme-toggle');
@@ -293,7 +394,7 @@
   }
 
   {% if user.is_authenticated %}
-  /* ── Generation Status Bar ────────────────────────────────────── */
+  /* ── Generation Status Bar (REQ-4.3.4, UC-01 E4) ─────────────── */
   var statusBar  = document.getElementById('gen-status-bar');
   var statusText = document.getElementById('gen-status-text');
   var hideTimer  = null;
@@ -305,6 +406,7 @@
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
+      var queued     = data.tasks.filter(function(t) { return t.status === 'Queued'; });
       var generating = data.tasks.filter(function(t) { return t.status === 'Generating'; });
       var done       = data.tasks.filter(function(t) { return t.status === 'Completed' || t.status === 'Failed'; });
 
@@ -314,6 +416,11 @@
         var names = generating.map(function(t) { return '"' + t.title + '"'; }).join(', ');
         statusText.textContent = '⏳ Generating ' + names + '…  You can navigate freely.';
         statusBar.className = '';
+        statusBar.style.display = 'block';
+      } else if (queued.length > 0) {
+        var names = queued.map(function(t) { return '"' + t.title + '"'; }).join(', ');
+        statusText.textContent = '🕐 Queued for generation: ' + names + '…';
+        statusBar.className = 'queued';
         statusBar.style.display = 'block';
       } else if (done.length > 0) {
         var t = done[0];
@@ -340,12 +447,29 @@
   pollStatus();
   setInterval(pollStatus, 3000);
 
-  /* ── Persistent Mini-Player ───────────────────────────────────── */
-  var MP_KEY   = 'mp_state';
-  var player   = document.getElementById('mini-player');
-  var audio    = document.getElementById('mp-audio');
-  var mpTitle  = document.getElementById('mp-title');
-  var mpClose  = document.getElementById('mp-close');
+  /* ── Persistent Mini-Player with Prev/Next (REQ-4.5.1, REQ-4.5.2) */
+  var MP_KEY      = 'mp_state';
+  var PL_KEY      = 'mp_playlist';
+  var PL_IDX_KEY  = 'mp_playlist_index';
+  var player      = document.getElementById('mini-player');
+  var audio       = document.getElementById('mp-audio');
+  var mpTitle     = document.getElementById('mp-title');
+  var mpClose     = document.getElementById('mp-close');
+  var mpPrev      = document.getElementById('mp-prev');
+  var mpNext      = document.getElementById('mp-next');
+
+  function getPlaylist() {
+    try { return JSON.parse(localStorage.getItem(PL_KEY)) || []; } catch(e) { return []; }
+  }
+  function getPlaylistIndex() {
+    return parseInt(localStorage.getItem(PL_IDX_KEY) || '0', 10);
+  }
+  function updateNavButtons() {
+    var pl  = getPlaylist();
+    var idx = getPlaylistIndex();
+    if (mpPrev) mpPrev.disabled = (pl.length === 0 || idx <= 0);
+    if (mpNext) mpNext.disabled = (pl.length === 0 || idx >= pl.length - 1);
+  }
 
   function showPlayer(url, title, startTime, paused, volume) {
     mpTitle.textContent = title;
@@ -360,6 +484,7 @@
       });
     }
     if (!paused) { audio.play().catch(function(){}); }
+    updateNavButtons();
   }
 
   function saveState() {
@@ -370,13 +495,31 @@
     }));
   }
 
+  function playTrackAt(idx) {
+    var pl = getPlaylist();
+    if (idx < 0 || idx >= pl.length) return;
+    var track = pl[idx];
+    localStorage.setItem(PL_IDX_KEY, String(idx));
+    localStorage.setItem(MP_KEY, JSON.stringify({url: track.url, title: track.title, time: 0, paused: false}));
+    showPlayer(track.url, track.title, 0, false);
+  }
+
+  /* Restore player state on page load */
   var saved = null;
   try { saved = JSON.parse(localStorage.getItem(MP_KEY)); } catch(e) {}
   if (saved && saved.url) { showPlayer(saved.url, saved.title, saved.time, saved.paused, saved.volume); }
+  updateNavButtons();
 
   window.addEventListener('beforeunload', saveState);
   audio.addEventListener('timeupdate', function() {
     if (Math.floor(audio.currentTime) % 5 === 0) { saveState(); }
+  });
+
+  /* Auto-advance to next track on end */
+  audio.addEventListener('ended', function() {
+    var pl  = getPlaylist();
+    var idx = getPlaylistIndex();
+    if (idx < pl.length - 1) { playTrackAt(idx + 1); }
   });
 
   document.addEventListener('click', function(e) {
@@ -384,14 +527,25 @@
     if (!btn) return;
     var url   = btn.dataset.url;
     var title = btn.dataset.title;
+    /* dataIndex is set by library.html script; fall back to current idx */
+    var idx = parseInt(btn.dataset.index || localStorage.getItem(PL_IDX_KEY) || '0', 10);
+    localStorage.setItem(PL_IDX_KEY, String(idx));
     localStorage.setItem(MP_KEY, JSON.stringify({url: url, title: title, time: 0, paused: false}));
     showPlayer(url, title, 0, false);
+  });
+
+  if (mpPrev) mpPrev.addEventListener('click', function() {
+    playTrackAt(getPlaylistIndex() - 1);
+  });
+  if (mpNext) mpNext.addEventListener('click', function() {
+    playTrackAt(getPlaylistIndex() + 1);
   });
 
   mpClose.addEventListener('click', function() {
     audio.pause();
     player.style.display = 'none';
     localStorage.removeItem(MP_KEY);
+    updateNavButtons();
   });
 
   /* ── Playback Failure Error (UC-02 E1) ───────────────────────── */
@@ -427,7 +581,6 @@
       btn.textContent = '✓ Copied!';
       setTimeout(function() { btn.textContent = orig; }, 2000);
     }).catch(function() {
-      /* fallback for non-HTTPS */
       var ta = document.createElement('textarea');
       ta.value = url;
       ta.style.position = 'fixed'; ta.style.opacity = '0';

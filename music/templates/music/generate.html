@@ -8,32 +8,48 @@
     <div class="alert-error">{{ error }}</div>
   {% endif %}
 
+  <style>
+    .field-hint { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; margin-bottom: 0.1rem; }
+  </style>
+
   <form method="post">
     {% csrf_token %}
 
     <label for="title">Song Name *</label>
     <input type="text" id="title" name="title" placeholder="e.g. Sukhumvit Rain" required
-           value="{{ request.POST.title|default:'' }}">
+           value="{{ request.POST.title|default:'' }}"
+           title="The display name for your track. Keep it descriptive and unique.">
+    <p class="field-hint">Give your track a unique, descriptive name (e.g. "Sukhumvit Rain").</p>
 
     <label for="genre">Genre</label>
     <input type="text" id="genre" name="genre" placeholder="e.g. Lo-Fi / Chill-hop"
-           value="{{ request.POST.genre|default:'' }}">
+           value="{{ request.POST.genre|default:'' }}"
+           title="The musical style or category. Examples: Lo-Fi, Jazz, Electronic, Classical.">
+    <p class="field-hint">Musical style — e.g. Lo-Fi, Jazz, Pop, Classical, Ambient.</p>
 
     <label for="mood">Mood</label>
     <input type="text" id="mood" name="mood" placeholder="e.g. Melancholic but cozy"
-           value="{{ request.POST.mood|default:'' }}">
+           value="{{ request.POST.mood|default:'' }}"
+           title="The emotional tone of the track. Examples: Energetic, Calm, Melancholic, Happy.">
+    <p class="field-hint">Emotional feeling — e.g. Calm, Energetic, Melancholic, Uplifting.</p>
 
     <label for="occasion">Occasion</label>
     <input type="text" id="occasion" name="occasion" placeholder="e.g. Vlog Background"
-           value="{{ request.POST.occasion|default:'' }}">
+           value="{{ request.POST.occasion|default:'' }}"
+           title="Where or how the track will be used. Examples: Vlog Background, Wedding, Workout, Study Session.">
+    <p class="field-hint">Intended use — e.g. Vlog Background, Study Music, Wedding, Workout.</p>
 
     <label for="singer_style">Singer Style</label>
     <input type="text" id="singer_style" name="singer_style" placeholder="e.g. Instrumental, Female Vocal"
-           value="{{ request.POST.singer_style|default:'' }}">
+           value="{{ request.POST.singer_style|default:'' }}"
+           title="Vocal style of the track. Use 'Instrumental' for no vocals, or specify a vocal type.">
+    <p class="field-hint">Vocal type — e.g. Instrumental (no vocals), Female Vocal, Male Rap, Choir.</p>
 
     <label for="topic">Topic / Theme</label>
     <input type="text" id="topic" name="topic" placeholder="e.g. Rainy afternoon coffee shop"
-           value="{{ request.POST.topic|default:'' }}">
+           value="{{ request.POST.topic|default:'' }}"
+           title="The narrative or thematic content for the track. Describe the scene, story, or imagery you want the music to evoke.">
+    <p class="field-hint">Scene or narrative — e.g. "Rainy afternoon coffee shop", "Driving at midnight".</p>
 
     <label style="margin-top:1.25rem;">AI Provider</label>
     <div style="display:flex; gap:1.25rem; margin-top:0.4rem; flex-wrap:wrap;">

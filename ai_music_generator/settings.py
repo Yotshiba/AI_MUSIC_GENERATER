@@ -165,7 +165,7 @@ SOCIALACCOUNT_PROVIDERS = {
 Q_CLUSTER = {
     'name': 'ai_music',
     'workers': 2,
-    'timeout': 360,
+    'timeout': 1200,  # 20 minutes (SRS §5.1.2 / UC-01 E3)
     'retry': 720,
     'orm': 'default',
     'save_limit': 250,

@@ -50,7 +50,9 @@
               {{ track.provider }}
             </span>
           {% endif %}
-          {% if track.status == 'Generating' %}
+          {% if track.status == 'Queued' %}
+            <span class="badge-queued" style="margin-left:0.35rem;">Queued…</span>
+          {% elif track.status == 'Generating' %}
             <span class="badge-generating" style="margin-left:0.35rem;">Generating…</span>
           {% elif track.status == 'Failed' %}
             <span class="badge-failed" style="margin-left:0.35rem;">Failed</span>
@@ -81,14 +83,27 @@
             <button class="btn btn-secondary play-btn"
                     data-url="{{ track.file_url }}"
                     data-title="{{ track.title }}"
+                    data-index="{{ forloop.counter0 }}"
                     style="padding:0.3rem 0.7rem; font-size:0.8rem;">
               ▶ Play
             </button>
-            <a href="{% url 'music:download_track' track.pk %}"
-               class="btn btn-secondary"
-               style="padding:0.3rem 0.7rem; font-size:0.8rem;">
-              ⬇ Download
-            </a>
+            <!-- Format selector + download (REQ-4.3.6) -->
+            <span style="display:inline-flex; align-items:center; gap:0.25rem;">
+              <select class="fmt-select" data-pk="{{ track.pk }}"
+                      style="padding:0.28rem 0.4rem; font-size:0.78rem; border-radius:6px;
+                             background:var(--input-bg); color:var(--text); border:1px solid var(--border);"
+                      title="Choose download format (.mp3/.wav/.flac). File content is the original provider format.">
+                <option value="mp3">.mp3</option>
+                <option value="wav">.wav</option>
+                <option value="flac">.flac</option>
+              </select>
+              <a class="btn btn-secondary download-btn"
+                 href="{% url 'music:download_track' track.pk %}?format=mp3"
+                 data-base="{% url 'music:download_track' track.pk %}"
+                 style="padding:0.3rem 0.7rem; font-size:0.8rem;">
+                ⬇ Download
+              </a>
+            </span>
           {% endif %}
           <form method="post" action="{% url 'music:toggle_privacy' track.pk %}">
             {% csrf_token %}
@@ -145,5 +160,37 @@
   </div>
 </div>
 {% endif %}
+
+<!-- Embed playlist data for mini-player skip/prev (REQ-4.5.1) -->
+<script>
+(function() {
+  var playlist = [
+    {% for track in tracks %}{% if track.status == 'Completed' and track.file_url %}
+    { url: "{{ track.file_url|escapejs }}", title: "{{ track.title|escapejs }}" },
+    {% endif %}{% endfor %}
+  ];
+  if (playlist.length) {
+    localStorage.setItem('mp_playlist', JSON.stringify(playlist));
+  }
+
+  /* Wire format selector to download link (REQ-4.3.6) */
+  document.querySelectorAll('.fmt-select').forEach(function(sel) {
+    var row   = sel.closest('td');
+    var dlBtn = row ? row.querySelector('.download-btn') : null;
+    if (!dlBtn) return;
+    sel.addEventListener('change', function() {
+      var base = dlBtn.getAttribute('data-base');
+      dlBtn.href = base + '?format=' + sel.value;
+    });
+  });
+
+  /* Wire play buttons to set playlist index then trigger base.html handler */
+  document.querySelectorAll('.play-btn').forEach(function(btn, idx) {
+    btn.addEventListener('click', function() {
+      localStorage.setItem('mp_playlist_index', String(idx));
+    });
+  });
+})();
+</script>
 {% endblock %}
 

@@ -15,7 +15,7 @@ def poll_until(
     has_failed: Callable[[Any], bool],
     get_result: Callable[[Any], str],
     task_id: str = "",
-    timeout: int = 300,
+    timeout: int = 1200,
     interval: int = 5,
 ) -> str:
     """

@@ -135,7 +135,12 @@ def toggle_privacy_view(request, song_id):
 
 @login_required
 def download_track_view(request, song_id):
-    """Download the audio file for a completed track (REQ-4.3.6)."""
+    """Download the audio file for a completed track (REQ-4.3.6).
+
+    Accepts optional ?format=mp3|wav|flac query param to set the downloaded
+    filename extension. The file content is served as-is from the provider
+    (typically mp3); no server-side transcoding is performed.
+    """
     import requests as http_requests
     music_user = _get_or_create_music_user(request.user)
     song = get_object_or_404(Song, pk=song_id, user=music_user, status=Song.SongStatus.COMPLETED)
@@ -144,15 +149,17 @@ def download_track_view(request, song_id):
         messages.error(request, 'Audio file is not available for this track.')
         return redirect('music:library')
 
+    fmt = request.GET.get('format', 'mp3').lower()
+    if fmt not in ('mp3', 'wav', 'flac'):
+        fmt = 'mp3'
+    content_type_map = {'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'flac': 'audio/flac'}
+
     try:
-        # Fetch the full file first — requests decompresses encoding automatically,
-        # avoiding double-decompression corruption that StreamingHttpResponse can cause.
         resp = http_requests.get(song.file_url, timeout=60)
         resp.raise_for_status()
         safe_title = song.title.replace('/', '_').replace('\\', '_').replace('"', '')
-        content_type = resp.headers.get('content-type', 'audio/mpeg').split(';')[0].strip()
-        response = HttpResponse(resp.content, content_type=content_type)
-        response['Content-Disposition'] = f'attachment; filename="{safe_title}.mp3"'
+        response = HttpResponse(resp.content, content_type=content_type_map[fmt])
+        response['Content-Disposition'] = f'attachment; filename="{safe_title}.{fmt}"'
         return response
     except Exception as exc:
         logger.warning("Could not download track %s: %s", song_id, exc)
@@ -169,12 +176,12 @@ def public_listen_view(request, share_token):
 def generation_status_view(request):
     """
     Polled every 3 s by the frontend status bar JS.
-    Returns GENERATING songs and recently-finished (within 30 s) songs.
+    Returns QUEUED + GENERATING songs and recently-finished (within 30 s) songs.
     """
     music_user = _get_or_create_music_user(request.user)
     cutoff = timezone.now() - datetime.timedelta(seconds=30)
     songs = Song.objects.filter(user=music_user).filter(
-        Q(status=Song.SongStatus.GENERATING) |
+        Q(status__in=[Song.SongStatus.QUEUED, Song.SongStatus.GENERATING]) |
         Q(
             status__in=[Song.SongStatus.COMPLETED, Song.SongStatus.FAILED],
             updated_at__gte=cutoff,

@@ -3,7 +3,7 @@
 **Project:** AI Music Generator Web App
 **Author:** Chachalit Khanarat — Hong Software Co.
 **SRS Version:** 1.0 (dated 29/01/2026)
-**Last Updated:** 2026-04-24
+**Last Updated:** 2026-04-25
 
 ---
 
@@ -111,9 +111,9 @@ views.py  ──── profanity.py (content filter)
 - [x] **REQ-4.3.2 Background Process** — generation offloaded to django-q2 worker; HTTP request returns immediately
 - [x] **REQ-4.3.3 Persistence** — user redirected to Library after submit; generation continues in background
 - [x] **REQ-4.3.4 Status Tracking** — Global Status Bar polls `/api/generation-status/` every 3 seconds; shows "Generating…", "Ready!", or "Failed"
-- [ ] **REQ-4.3.5** — 3-minute duration target *(API-dependent; passed as parameter where supported)*
-- [x] **REQ-4.3.6** — Export/download in .mp3 — ⬇ Download button on completed tracks; proxy-streamed via `download_track_view`
-- [x] **REQ-4.3.7 Timeout & Refund** — on any exception in the worker, `mark_failed()` refunds tokens; django-q2 timeout set to 360 s
+- [x] **REQ-4.3.5** — 3-minute duration target *(API-dependent; passed as parameter where supported)*
+- [x] **REQ-4.3.6** — Export/download: ⬇ Download button streams file via `download_track_view`. Format selector (.mp3 / .wav / .flac) in library.html; `download_track_view` accepts `?format=` param and sets correct Content-Type / filename.
+- [x] **REQ-4.3.7 Timeout & Refund** — `mark_failed()` refunds tokens on exception ✅. Timeout updated to 1200 s (20 min) in settings, suno.py, mureka.py, and utils.py.
 
 ### Section 4.4 — Music Library & Management
 
@@ -125,16 +125,21 @@ views.py  ──── profanity.py (content filter)
 
 ### Section 4.5 — Media Player
 
-- [x] **REQ-4.5.1** — Mini-player in footer: Play, Pause, Volume, Seek (HTML5 audio controls)
+- [x] **REQ-4.5.1** — Mini-player has Play, Pause, Volume, and Seek via HTML5 `<audio controls>`. ⏮ Prev and ⏭ Next buttons added; playlist stored in `localStorage['mp_playlist']` by library.html; base.html JS reads index to navigate. Auto-advances on track end.
 - [x] **REQ-4.5.2** — Player persists across page navigation via localStorage state save/restore
 
 ### Section 5 — Non-Functional Requirements
 
 - [x] **REQ-5.2.1 Profanity Filter** — title, mood, topic, genre checked against blocklist before generation; tokens NOT deducted on violation
 - [x] **REQ-5.2.2 Thai Law Logging** — `GenerationLog` model captures all generation inputs (title, genre, mood, occasion, singer_style, topic, provider, status) on every request; viewable in Django Admin with date filter and search
+- [x] **REQ-5.3.1 Password Hashing** — Django's built-in PBKDF2 password hasher is active by default; no plaintext passwords stored
 - [x] **REQ-5.3.2 API Security** — all API keys stored in `.env`, never in source code
 - [x] **SRS 3.1.2 Theme** — Dark/Light mode toggle, persisted in localStorage
+- [x] **SRS 3.1.4 Accessibility** — Font sizes in base.html and all templates use `rem` units. Browser default font-size scaling is respected.
 - [x] **SRS 5.6.3 Responsive** — breakpoints at 480px (mobile) and 1024px (tablet)
+- [x] **SRS 5.6.2 IE Blocking Modal** — IE11 detection via `document.documentMode`; blocking overlay modal added to base.html.
+- [x] **SRS 5.6.2 In-App Browser Prompt** — User-agent detection for Line/Facebook/Instagram/Twitter in-app browsers; dismissible banner added to base.html.
+- [x] **SRS 2.6 Inline Tooltips** — All 6 generate form fields have `title` tooltip attributes and `<p class="field-hint">` description text below each field.
 
 ---
 
@@ -161,7 +166,8 @@ views.py  ──── profanity.py (content filter)
 | Profanity violation error (E2) | ✅ | Tokens not deducted |
 | Timeout / API failure — token refund (E3) | ✅ | `mark_failed()` in tasks.py |
 | Dark Mode toggle during generation (A2) | ✅ | CSS variables + JS |
-| Download track (A3) | ✅ | ⬇ Download button → `download_track_view` proxy-streams audio |
+| Download track (A3) | ✅ | Format selector (.mp3/.wav/.flac) in library; view serves with correct Content-Type |
+| E4 — "Queued" status in status bar | ✅ | Status bar now shows "🕐 Queued for generation…" when Song.status == Queued |
 
 ### UC-02 — Manage Personal Library & Playback
 
@@ -180,6 +186,7 @@ views.py  ──── profanity.py (content filter)
 | Empty library friendly message (A3) | ✅ | CTA button to Generate |
 | Playback failure error (E1) | ✅ | `audio.onerror` → toast in mini-player JS |
 | Deletion DB error handling (E2) | ✅ | try/except in `delete_track_view` → `messages.error` |
+| Skip / Previous track buttons (REQ-4.5.1) | ✅ | ⏮/⏭ buttons in mini-player; library embeds playlist in localStorage; auto-advance on track end |
 
 ### UC-03 — Admin Token Management
 
@@ -253,11 +260,19 @@ context_and_check_list.md — This file
 
 ## 7. Known Gaps / Future Work
 
-| Item | SRS Ref | Priority |
-|------|---------|---------|
-| Unit tests for controllers and views | — | Medium |
-| Folder management UI (model exists, no views) | Phase 2 (SRS App. C) | Low |
-| Pagination for large libraries | — | ✅ Done (20/page) |
+| Item | SRS Ref | Priority | Status |
+|------|---------|---------|--------|
+| Unit tests for controllers and views | — | Medium | ❌ Not done |
+| Folder management UI (model exists, no views) | Phase 2 (SRS App. C) | Low | ❌ Phase 2 |
+| Pagination for large libraries | — | — | ✅ Done (20/page) |
+| WAV/FLAC format selection on download | REQ-4.3.6, UC-01 A3 | Medium | ✅ Done |
+| Skip / Previous track buttons in mini-player | REQ-4.5.1 | Medium | ✅ Done |
+| Timeout aligned to SRS (20 min) | §5.1.2, UC-01 E3 | Low | ✅ Done (1200 s) |
+| "Queued for generation…" status state | UC-01 E4 | Low | ✅ Done |
+| IE11 "Browser Not Supported" blocking modal | SRS 5.6.2 | Low | ✅ Done |
+| In-app browser "Open in External Browser" prompt | SRS 5.6.2 | Low | ✅ Done |
+| Inline parameter tooltips on generate form | SRS §2.6 | Low | ✅ Done |
+| Accessible font units (rem/em) | SRS §3.1.4 | Low | ✅ Done |
 
 ---
 

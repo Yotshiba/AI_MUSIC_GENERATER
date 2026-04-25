@@ -11,6 +11,7 @@ class Song(models.Model):
 
     class SongStatus(models.TextChoices):
         DRAFT = 'Draft', 'Draft'
+        QUEUED = 'Queued', 'Queued'
         GENERATING = 'Generating', 'Generating'
         COMPLETED = 'Completed', 'Completed'
         FAILED = 'Failed', 'Failed'
@@ -47,6 +48,16 @@ class Song(models.Model):
         return self.title
 
     # ── Information Expert: status transitions owned by Song ──────────────
+
+    def mark_queued(self) -> None:
+        """Transition to QUEUED (task submitted, worker not yet started)."""
+        self.status = self.SongStatus.QUEUED
+        self.save(update_fields=["status"])
+
+    def mark_generating(self) -> None:
+        """Transition to GENERATING (worker has picked up the task)."""
+        self.status = self.SongStatus.GENERATING
+        self.save(update_fields=["status"])
 
     def mark_complete(self, file_url: str) -> None:
         """Transition to COMPLETED and store the audio URL."""

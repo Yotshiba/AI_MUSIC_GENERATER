@@ -52,7 +52,7 @@ class GenerateMusicController:
             singer_style=singer_style,
             topic=topic,
             provider=provider,
-            status=Song.SongStatus.GENERATING,
+            status=Song.SongStatus.QUEUED,
         )
 
         GenerationLog.objects.create(

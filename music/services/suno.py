@@ -14,7 +14,7 @@ from .utils import poll_until
 logger = logging.getLogger("music")
 
 _POLL_INTERVAL = 5    # seconds between status checks
-_MAX_WAIT      = 300  # 5 minutes
+_MAX_WAIT      = 1200  # 20 minutes (SRS §5.1.2)
 
 
 class SunoStrategy(MusicGenerationStrategy):
