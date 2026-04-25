@@ -28,7 +28,7 @@ def grant_tokens_action(modeladmin, request, queryset):
                     profile = Profile.objects.get(user=user)
                     new_balance = min(
                         profile.token_balance + amount,
-                        AdminTokenController.MAX_TOKEN_BALANCE,
+                        Profile.MAX_BALANCE,
                     )
                     AdminTokenController.set_token_balance(user.pk, new_balance)
                     count += 1

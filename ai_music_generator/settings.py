@@ -151,13 +151,18 @@ ACCOUNT_EMAIL_VERIFICATION = 'none'
 SOCIALACCOUNT_AUTO_SIGNUP = True
 SOCIALACCOUNT_LOGIN_ON_GET = True
 
+_GOOGLE_CLIENT_ID     = os.environ.get('GOOGLE_CLIENT_ID', '').strip()
+_GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET', '').strip()
+
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
         'SCOPE': ['profile', 'email'],
         'AUTH_PARAMS': {'access_type': 'online'},
-        # Credentials are stored in Django Admin → Social Applications.
-        # Do NOT add an APP key here — it creates a duplicate and causes
-        # MultipleObjectsReturned when allauth looks up the provider.
+        # If GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are set in .env the
+        # credentials are injected here and no Django-Admin Social Application
+        # entry is needed.  If the env vars are absent the button is hidden.
+        **({'APP': {'client_id': _GOOGLE_CLIENT_ID, 'secret': _GOOGLE_CLIENT_SECRET}}
+           if _GOOGLE_CLIENT_ID and _GOOGLE_CLIENT_SECRET else {}),
     }
 }
 

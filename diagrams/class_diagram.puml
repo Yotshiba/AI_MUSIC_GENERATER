@@ -234,7 +234,7 @@ User "1" o-- "*" TokenRecord : records
 User "1" o-- "*" GenerationLog : logged
 Library "1" o-- "*" Folder : contains
 Folder "0..1" o-- "*" Song : groups
-Song "1" o-- "*" GenerationLog : linked
+Song "0..1" o-- "*" GenerationLog : linked
 Profile ..> InsufficientTokensError : raises
 GenerateMusicController ..> ProfanityError : raises
 

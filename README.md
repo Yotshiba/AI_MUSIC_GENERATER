@@ -58,8 +58,8 @@ cp .env.example .env
 | `SUNO_BASE_URL` | Suno mode only | Default: `https://api.sunoapi.org` |
 | `MUREKA_API_KEY` | Mureka mode only | API key from [platform.mureka.ai](https://platform.mureka.ai) |
 | `MUSIC_API_PROVIDER` | Optional | Default provider shown in the form: `mureka` or `suno` |
-| `GOOGLE_CLIENT_ID` | OAuth only | Google OAuth client ID |
-| `GOOGLE_CLIENT_SECRET` | OAuth only | Google OAuth client secret |
+| `GOOGLE_CLIENT_ID` | OAuth only | Google OAuth Client ID from Google Cloud Console |
+| `GOOGLE_CLIENT_SECRET` | OAuth only | Google OAuth Client Secret from Google Cloud Console |
 
 ### How to get a Suno API key
 
@@ -85,7 +85,7 @@ cp .env.example .env
 
 ### Google OAuth setup (optional)
 
-> The app works fully without Google OAuth — email/password login is always available. The **Continue with Google** button only appears once a Social Application is configured in Django Admin.
+> The app works fully without Google OAuth — email/password login is always available. The **Continue with Google** button appears automatically once `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are set in `.env`. No Django Admin configuration is required.
 
 **Step 1 — Create OAuth credentials in Google Cloud Console**
 
@@ -114,26 +114,9 @@ GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-your-secret-here
 ```
 
-**Step 4 — Fix the Sites record in Django Admin**
+That's it. Restart the server and the **Continue with Google** button will appear on the login page.
 
-1. Open `http://localhost:8000/admin/` → **Sites** → click the existing site
-2. Set both **Domain name** and **Display name** to: `localhost:8000`
-3. Save
-
-**Step 5 — Create the Social Application in Django Admin**
-
-1. Open `http://localhost:8000/admin/` → **Social Accounts** → **Social applications** → **Add**
-2. Fill in the fields:
-
-   | Field | Value |
-   |-------|-------|
-   | Provider | `Google` |
-   | Name | `Google` |
-   | Client id | *(paste Client ID from Step 1)* |
-   | Secret key | *(paste Client Secret from Step 1)* |
-   | Sites | Move `localhost:8000` → **Chosen sites** |
-
-3. Save — the **Continue with Google** button will now appear on the login page.
+> **Note on Sites:** The Sites record in Django Admin (`/admin/sites/`) must have its domain set to `localhost:8000` (not the default `example.com`). Run `python manage.py migrate` on a fresh database and this is set automatically. If you are using an existing database and the button does not work, open `/admin/sites/`, click the existing entry, and set both **Domain name** and **Display name** to `localhost:8000`.
 
 ---
 
