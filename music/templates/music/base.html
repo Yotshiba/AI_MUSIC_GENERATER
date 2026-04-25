@@ -475,21 +475,20 @@
     mpTitle.textContent = title;
     var targetTime = (typeof startTime === 'number') ? startTime : 0;
     var srcChanged = (audio.src !== url);
-    if (srcChanged) { audio.src = url; }
     if (volume !== undefined) { audio.volume = volume; }
     player.style.display = 'flex';
     if (srcChanged) {
-      /* New track — always seek to targetTime (usually 0) after load */
-      if (audio.readyState >= 1) {
-        audio.currentTime = targetTime;
-      } else {
+      audio.src = url;
+      audio.load();   /* force full reset → guarantees currentTime = 0 */
+      if (targetTime > 0) {
+        /* Only seek to non-zero resume position (restoring saved state) */
         audio.addEventListener('loadedmetadata', function handler() {
           audio.currentTime = targetTime;
           audio.removeEventListener('loadedmetadata', handler);
         });
       }
     } else if (targetTime > 0) {
-      /* Same track, seek to a specific resume position */
+      /* Same src, seek to a specific position */
       if (audio.readyState >= 1) { audio.currentTime = targetTime; }
       else {
         audio.addEventListener('loadedmetadata', function handler() {
@@ -516,7 +515,14 @@
     var track = pl[idx];
     localStorage.setItem(PL_IDX_KEY, String(idx));
     localStorage.setItem(MP_KEY, JSON.stringify({url: track.url, title: track.title, time: 0, paused: false}));
-    showPlayer(track.url, track.title, 0, false);
+    /* Bypass showPlayer to guarantee clean start from 0:00 */
+    mpTitle.textContent = track.title;
+    audio.pause();
+    audio.src = track.url;
+    audio.load();   /* hard reset: aborts current load, sets currentTime = 0 */
+    audio.play().catch(function(){});
+    player.style.display = 'flex';
+    updateNavButtons();
   }
 
   /* Restore player state on page load */
