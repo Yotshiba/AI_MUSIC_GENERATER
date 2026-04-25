@@ -292,7 +292,7 @@
   <span class="token-badge">{{ profile.token_balance }} tokens</span>
   <button id="theme-toggle" title="Toggle theme">☀ Light</button>
   <span style="font-size:0.85rem; color:var(--muted);">{{ user.username|default:user.email }}</span>
-  <form method="post" action="{% url 'account_logout' %}" style="display:inline">
+  <form id="logout-form" method="post" action="{% url 'account_logout' %}" style="display:inline">
     {% csrf_token %}
     <button type="submit" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.85rem;">Logout</button>
   </form>
@@ -451,6 +451,7 @@
   var MP_KEY      = 'mp_state';
   var PL_KEY      = 'mp_playlist';
   var PL_IDX_KEY  = 'mp_playlist_index';
+  var MP_USER_KEY = 'mp_user';
   var player      = document.getElementById('mini-player');
   var audio       = document.getElementById('mp-audio');
   var mpTitle     = document.getElementById('mp-title');
@@ -525,11 +526,30 @@
     updateNavButtons();
   }
 
+  /* Clear player state if a different user is now logged in */
+  if (localStorage.getItem(MP_USER_KEY) !== '{{ user.pk }}') {
+    localStorage.removeItem(MP_KEY);
+    localStorage.removeItem(PL_KEY);
+    localStorage.removeItem(PL_IDX_KEY);
+  }
+  localStorage.setItem(MP_USER_KEY, '{{ user.pk }}');
+
   /* Restore player state on page load */
   var saved = null;
   try { saved = JSON.parse(localStorage.getItem(MP_KEY)); } catch(e) {}
   if (saved && saved.url) { showPlayer(saved.url, saved.title, saved.time, saved.paused, saved.volume); }
   updateNavButtons();
+
+  /* Clear player state from localStorage when logging out */
+  var logoutForm = document.getElementById('logout-form');
+  if (logoutForm) {
+    logoutForm.addEventListener('submit', function() {
+      localStorage.removeItem(MP_KEY);
+      localStorage.removeItem(PL_KEY);
+      localStorage.removeItem(PL_IDX_KEY);
+      localStorage.removeItem(MP_USER_KEY);
+    });
+  }
 
   window.addEventListener('beforeunload', saveState);
   audio.addEventListener('timeupdate', function() {
