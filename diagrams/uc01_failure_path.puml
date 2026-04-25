@@ -23,15 +23,18 @@ skinparam participant {
 
 actor "User (Browser)" as User
 participant "views.py" as View #fecaca
-participant "django-q2 Worker" as Queue #fecaca
+participant "django-q2 Worker\n(tasks.py)" as Queue #fecaca
+participant "Song (Model)" as Song #bfdbfe
 participant "Strategy (Suno / Mock)" as Strategy #fed7aa
 participant "External AI API" as API #e5e7eb
 participant "GenerateMusicController" as Ctrl #bbf7d0
-participant "Song (Model)" as Song #bfdbfe
 participant "GenerationLog (Model)" as Log #bfdbfe
 participant "Profile (Model)" as Profile #bfdbfe
 
 note over Queue : Background task running...
+
+Queue -> Song : song.mark_generating()
+Song -> Song : status = GENERATING
 
 Queue -> Strategy : strategy.generate(song)
 Strategy -> API : POST /api/v1/generate
@@ -54,9 +57,9 @@ Ctrl -> Song : song.mark_failed()
 Song -> Song : status = FAILED
 Ctrl -> Log : GenerationLog.update(status=FAILED)
 Ctrl -> Profile : profile.refund(1 token)
-Profile -> Profile : token_balance += 1
+Profile -> Profile : token_balance += 1\ncreates TokenRecord(EARNED)
 
-User -> View : GET /api/generation-status/ (JS polls)
+User -> View : GET /api/generation-status/ (JS polls every 3 s)
 View --> User : { status: "Failed" }
 note over User : Status bar -> "Failed" - token refunded
 

@@ -44,19 +44,25 @@ package "Model Layer" <<Rectangle>> {
 class User <<Model>> {
     +name : String
     +email : String
-    +role : String
+    +role : String [Creator | Admin]
+    +{static} from_auth_user(auth_user) : User
 }
 
 class Profile <<Model>> {
+    +MAX_BALANCE : int = 9999
     +token_balance : int
     +can_afford(cost) : bool
     +deduct(cost) : void
     +refund(cost) : void
 }
 
+class InsufficientTokensError <<Model>> {
+    {exception}
+}
+
 class TokenRecord <<Model>> {
     +amount : int
-    +type : String
+    +type : String [Earned | Spent]
 }
 
 class Library <<Model>> {
@@ -74,13 +80,15 @@ class Song <<Model>> {
     +singer_style : String
     +topic : String
     +duration : int
-    +status : String
+    +status : String [Draft|Queued|Generating|Completed|Failed]
     +provider : String
     +file_url : String
     +is_public : bool
     +share_token : UUID
     +created_at : DateTime
     +updated_at : DateTime
+    +mark_queued() : void
+    +mark_generating() : void
     +mark_complete(file_url) : void
     +mark_failed() : void
     +toggle_privacy() : void
@@ -94,7 +102,7 @@ class GenerationLog <<Model>> {
     +singer_style : String
     +topic : String
     +provider : String
-    +status : String
+    +status : String [Pending | Success | Failed]
     +timestamp : DateTime
 }
 
@@ -104,22 +112,27 @@ class GenerationLog <<Model>> {
 package "Controller Layer" <<Rectangle>> {
 
 class GenerateMusicController <<Controller>> {
-    +request_generation(user, ...) : Song
-    +mark_complete(song_id, file_url) : Song
-    +mark_failed(song_id) : Song
+    +GENERATION_COST : int = 1
+    +{static} request_generation(user, ...) : Song
+    +{static} mark_complete(song_id, file_url) : Song
+    +{static} mark_failed(song_id) : Song
+}
+
+class ProfanityError <<Controller>> {
+    {exception}
 }
 
 class ManageLibraryController <<Controller>> {
-    +list_tracks(user, genre, mood, search) : List
-    +delete_track(song_id, user) : void
-    +toggle_privacy(song_id, user) : Song
-    +get_public_track(share_token) : Song
+    +{static} list_tracks(user, genre, mood, search) : List
+    +{static} delete_track(song_id, user) : void
+    +{static} toggle_privacy(song_id, user) : Song
+    +{static} get_public_track(share_token) : Song
 }
 
 class AdminTokenController <<Controller>> {
-    +get_user_profile(user_id)
-    +set_token_balance(user_id, amount) : Profile
-    +list_users() : List
+    +{static} get_user_profile(user_id)
+    +{static} set_token_balance(user_id, new_balance) : Profile
+    +{static} list_users(**filters) : List
 }
 
 }
@@ -165,6 +178,14 @@ class "views.py" as views_py <<View>> {
 
 class "tasks.py\n(django-q2 worker)" as tasks_py <<View>> {
     +generate_music_task(song_id, provider)
+    ' 1. song.mark_generating()
+    ' 2. strategy.generate(song)
+    ' 3. mark_complete / mark_failed
+}
+
+class "signals.py" as signals_py <<View>> {
+    +provision_user_resources(sender, instance, ...)
+    ' post_save → creates Profile + Library
 }
 
 class "admin.py\n(Django Admin)" as admin_py <<View>> {
@@ -176,6 +197,10 @@ class "admin.py\n(Django Admin)" as admin_py <<View>> {
     +FolderAdmin
     +SongAdmin
     +GenerationLogAdmin
+}
+
+class "profanity.py" as profanity_py <<View>> {
+    +contains_profanity(text) : bool
 }
 
 }
@@ -202,17 +227,19 @@ class "public_listen.html" as public_listen_html <<Template>> {
 }
 
 ' ── RELATIONSHIPS ─────────────────────────────────────────────────────────────
-User "1" o-- "1" Profile : has
-User "1" o-- "1" Library : has
+User "1" *-- "1" Profile : has (OneToOne)
+User "1" *-- "1" Library : has (OneToOne)
 User "1" o-- "*" Song : owns
 User "1" o-- "*" TokenRecord : records
 User "1" o-- "*" GenerationLog : logged
 Library "1" o-- "*" Folder : contains
-Folder "1" o-- "*" Song : groups
+Folder "0..1" o-- "*" Song : groups
 Song "1" o-- "*" GenerationLog : linked
+Profile ..> InsufficientTokensError : raises
+GenerateMusicController ..> ProfanityError : raises
 
 GenerateMusicController --> Profile : deduct / refund
-GenerateMusicController --> Song : create / update status
+GenerateMusicController --> Song : create (QUEUED) / update status
 GenerateMusicController --> GenerationLog : create / update
 ManageLibraryController --> Song : read / delete / toggle
 AdminTokenController --> Profile : read / set balance
@@ -224,10 +251,14 @@ MusicGenerationStrategy <|-- MurekaStrategy : implements
 
 views_py --> GenerateMusicController : delegates UC-01
 views_py --> ManageLibraryController : delegates UC-02
-views_py ..> tasks_py : async dispatch
+views_py ..> tasks_py : async_task dispatch
+tasks_py --> Song : mark_generating()
 tasks_py --> GenerateMusicController : mark_complete / mark_failed
 tasks_py --> MusicGenerationStrategy : generate
 admin_py --> AdminTokenController : delegates UC-03
+signals_py ..> Profile : creates on User.post_save
+signals_py ..> Library : creates on User.post_save
+GenerateMusicController ..> profanity_py : contains_profanity()
 views_py ..> base_html : renders
 views_py ..> generate_html : renders
 views_py ..> library_html : renders

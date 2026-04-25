@@ -27,7 +27,7 @@ participant "GenerateMusicController" as Ctrl #bbf7d0
 participant "Profile (Model)" as Profile #bfdbfe
 participant "Song (Model)" as Song #bfdbfe
 participant "GenerationLog (Model)" as Log #bfdbfe
-participant "django-q2 Worker" as Queue #fecaca
+participant "django-q2 Worker\n(tasks.py)" as Queue #fecaca
 participant "Strategy (Suno / Mock)" as Strategy #fed7aa
 participant "External AI API" as API #e5e7eb
 
@@ -36,25 +36,32 @@ View -> Ctrl : request_generation(user, title, ...)
 
 note over Ctrl : @transaction.atomic
 
-Ctrl -> Ctrl : contains_profanity(fields)?
+Ctrl -> Ctrl : contains_profanity(title, genre, mood, topic)?
 
 alt profanity detected
     Ctrl --> View : raise ProfanityError
     View --> User : "Inappropriate language" error
-else clean input
+else insufficient tokens
+    Ctrl -> Profile : can_afford(1)?
+    Profile --> Ctrl : False
+    Ctrl --> View : raise InsufficientTokensError
+    View --> User : "Insufficient credits" error
+else clean input & tokens available
     Ctrl -> Profile : deduct(1 token)
-    Profile -> Profile : token_balance -= 1
+    Profile -> Profile : token_balance -= 1\ncreates TokenRecord(SPENT)
     Profile --> Ctrl : deducted
-    Ctrl -> Song : Song.objects.create(status=GENERATING)
+    Ctrl -> Song : Song.objects.create(status=QUEUED)
     Song --> Ctrl : song (id=X)
-    Ctrl -> Log : GenerationLog.objects.create(...)
+    Ctrl -> Log : GenerationLog.objects.create(status=PENDING)
     Log --> Ctrl : ok
     Ctrl --> View : song
     View -> Queue : async_task("generate_music_task", song.id, provider)
-    View --> User : 302 Redirect -> /library/
+    View --> User : 302 Redirect -> /library/\n+ flash "being generated"
 
-    note over Queue : Runs in background (Terminal 2)
+    note over Queue : Runs in background (qcluster worker)
 
+    Queue -> Song : song.mark_generating()
+    Song -> Song : status = GENERATING
     Queue -> Strategy : get_strategy(provider)
     Queue -> Strategy : strategy.generate(song)
     Strategy -> API : POST /api/v1/generate (Bearer token)
@@ -68,8 +75,10 @@ else clean input
     API --> Strategy : { status: "SUCCESS", audioUrl: "..." }
     Strategy --> Queue : audio_url
     Queue -> Ctrl : mark_complete(song.id, audio_url)
+    note over Ctrl : @transaction.atomic
     Ctrl -> Song : song.mark_complete(audio_url)
     Song -> Song : status = COMPLETED, file_url = audio_url
+    Ctrl -> Log : GenerationLog.update(status=SUCCESS)
 
     User -> View : GET /api/generation-status/ (JS polls every 3 s)
     View --> User : { status: "Completed" }
