@@ -11,6 +11,7 @@ from .user import User
 
 class GenerationLog(models.Model):
     class Status(models.TextChoices):
+        PENDING = 'Pending', 'Pending'
         SUCCESS = 'Success', 'Success'
         FAILED = 'Failed', 'Failed'
 
@@ -23,7 +24,7 @@ class GenerationLog(models.Model):
     singer_style = models.CharField(max_length=100, blank=True)
     topic = models.CharField(max_length=200, blank=True)
     provider = models.CharField(max_length=50, blank=True)
-    status = models.CharField(max_length=10, choices=Status.choices, default=Status.SUCCESS)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:

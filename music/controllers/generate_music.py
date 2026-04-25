@@ -65,17 +65,19 @@ class GenerateMusicController:
             singer_style=singer_style,
             topic=topic,
             provider=provider,
-            status=GenerationLog.Status.SUCCESS,
+            status=GenerationLog.Status.PENDING,
         )
 
         return song
 
     @staticmethod
+    @transaction.atomic
     def mark_complete(song_id, file_url=""):
-        """Mark a song COMPLETED and store the audio URL returned by the API."""
+        """Mark a song COMPLETED, store the audio URL, and finalise the audit log."""
         song = get_object_or_404(Song, pk=song_id)
         # Information Expert: Song owns its own state transition.
         song.mark_complete(file_url)
+        GenerationLog.objects.filter(song_id=song_id).update(status=GenerationLog.Status.SUCCESS)
         return song
 
     @staticmethod

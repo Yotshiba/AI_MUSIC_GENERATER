@@ -17,20 +17,9 @@ from .controllers import (
     ManageLibraryController,
     ProfanityError,
 )
-from .models import Library, Profile, Song, User
+from .models import Profile, Song, User
 
 logger = logging.getLogger("music")
-
-
-def _get_or_create_music_user(auth_user):
-    """Bridge Django auth.User to music.User, provisioning on first login.
-    Profile and Library are created automatically via post_save signal (signals.py).
-    """
-    music_user, _ = User.objects.get_or_create(
-        email=auth_user.email,
-        defaults={'name': auth_user.get_full_name() or auth_user.username or auth_user.email, 'role': User.UserRole.CREATOR},
-    )
-    return music_user
 
 
 def home_view(request):
@@ -41,7 +30,7 @@ def home_view(request):
 
 @login_required
 def generate_view(request):
-    music_user = _get_or_create_music_user(request.user)
+    music_user = User.from_auth_user(request.user)
     profile = Profile.objects.get(user=music_user)
     error = None
 
@@ -82,7 +71,7 @@ def generate_view(request):
 
 @login_required
 def library_view(request):
-    music_user = _get_or_create_music_user(request.user)
+    music_user = User.from_auth_user(request.user)
     profile = Profile.objects.get(user=music_user)
 
     genre  = request.GET.get('genre', '').strip()
@@ -113,7 +102,7 @@ def library_view(request):
 @login_required
 @require_POST
 def delete_track_view(request, song_id):
-    music_user = _get_or_create_music_user(request.user)
+    music_user = User.from_auth_user(request.user)
     song = Song.objects.filter(pk=song_id, user=music_user).first()
     track_title = song.title if song else 'Track'
     try:
@@ -128,7 +117,7 @@ def delete_track_view(request, song_id):
 @login_required
 @require_POST
 def toggle_privacy_view(request, song_id):
-    music_user = _get_or_create_music_user(request.user)
+    music_user = User.from_auth_user(request.user)
     ManageLibraryController.toggle_privacy(song_id, music_user)
     return redirect('music:library')
 
@@ -142,7 +131,7 @@ def download_track_view(request, song_id):
     (typically mp3); no server-side transcoding is performed.
     """
     import requests as http_requests
-    music_user = _get_or_create_music_user(request.user)
+    music_user = User.from_auth_user(request.user)
     song = get_object_or_404(Song, pk=song_id, user=music_user, status=Song.SongStatus.COMPLETED)
 
     if not song.file_url:
@@ -178,7 +167,7 @@ def generation_status_view(request):
     Polled every 3 s by the frontend status bar JS.
     Returns QUEUED + GENERATING songs and recently-finished (within 30 s) songs.
     """
-    music_user = _get_or_create_music_user(request.user)
+    music_user = User.from_auth_user(request.user)
     cutoff = timezone.now() - datetime.timedelta(seconds=30)
     songs = Song.objects.filter(user=music_user).filter(
         Q(status__in=[Song.SongStatus.QUEUED, Song.SongStatus.GENERATING]) |

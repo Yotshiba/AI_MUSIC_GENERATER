@@ -18,3 +18,17 @@ class User(models.Model):
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def from_auth_user(cls, auth_user):
+        """Creator: get or create a music.User from a Django auth.User.
+        Profile and Library are provisioned automatically via post_save signal.
+        """
+        music_user, _ = cls.objects.get_or_create(
+            email=auth_user.email,
+            defaults={
+                'name': auth_user.get_full_name() or auth_user.username or auth_user.email,
+                'role': cls.UserRole.CREATOR,
+            },
+        )
+        return music_user

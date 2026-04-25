@@ -15,8 +15,6 @@ from ..models import Profile, TokenRecord, User
 class AdminTokenController:
     """Controls the admin token management use case (UC-03)."""
 
-    MAX_TOKEN_BALANCE = 9999
-
     @staticmethod
     def get_user_profile(user_id):
         """Fetch a user and their profile for admin review."""
@@ -34,9 +32,9 @@ class AdminTokenController:
         """
         if new_balance < 0:
             raise ValueError("Ensure this value is greater than or equal to 0.")
-        if new_balance > AdminTokenController.MAX_TOKEN_BALANCE:
+        if new_balance > Profile.MAX_BALANCE:
             raise ValueError(
-                f"Token balance cannot exceed {AdminTokenController.MAX_TOKEN_BALANCE}."
+                f"Token balance cannot exceed {Profile.MAX_BALANCE}."
             )
 
         profile = get_object_or_404(Profile, user_id=user_id)
