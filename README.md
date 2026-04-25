@@ -399,6 +399,7 @@ music/
     library.py               # Library (1-to-1 with User)
     folder.py                # Folder inside a Library
     song.py                  # Song (core entity, all metadata + timestamps)
+    generation_log.py        # Audit log for every generation attempt (REQ-5.2.2)
   controllers/               # Use-case business logic
     generate_music.py        # UC-01: request, complete, fail, refund
     manage_library.py        # UC-02: list, delete, toggle privacy
@@ -422,7 +423,7 @@ music/
     generate.html            # UC-01 generation form
     library.html             # UC-02 track list with play/delete/privacy actions
     public_listen.html       # Public share page (no auth required)
-  migrations/                # 4 migration files (0001–0004)
+  migrations/                # 7 migration files (0001–0007)
   management/commands/
     seed_and_demo.py         # Demo seed data for all 3 use cases
 
@@ -463,8 +464,9 @@ Organized by the **MVT + Controller + Strategy** architecture layers. Colour cod
 | **Library** | one-to-one with User |
 | **Folder** | name, FK → Library |
 | **Song** | title, genre, mood, occasion, singer_style, topic, duration, status, provider, file_url, is_public, share_token, created_at, updated_at |
+| **GenerationLog** | title, genre, mood, occasion, singer_style, topic, provider, status (Pending/Success/Failed), timestamp |
 
-Song statuses: `Draft → Generating → Completed / Failed`
+Song statuses: `Draft → Queued → Generating → Completed / Failed`
 
 ---
 
@@ -472,12 +474,13 @@ Song statuses: `Draft → Generating → Completed / Failed`
 
 ### UC-01 — Generate and Share Music
 1. User fills in the generation form (title required; genre, mood, occasion, singer style, topic optional)
-2. System checks token balance and runs profanity filter
-3. Tokens deducted; background task queued via django-q2
-4. User is redirected to Library immediately (non-blocking)
-5. Global status bar polls `/api/generation-status/` every 3 seconds and updates in real time
-6. On completion the track appears in the Library; on failure tokens are refunded
-7. User can toggle a track Public to get a shareable link; anyone can open it without logging in
+2. System runs profanity filter (title, genre, mood, topic); raises `ProfanityError` if triggered
+3. System checks token balance; raises `InsufficientTokensError` if balance < 1
+4. Token deducted, song record created with status **Queued**, `GenerationLog` created with status **Pending**; background task dispatched via django-q2
+5. User is redirected to Library immediately (non-blocking)
+6. Worker transitions song to **Generating**, calls the AI provider strategy, then to **Completed** (audio URL stored) or **Failed** (token refunded, log updated)
+7. Global status bar polls `/api/generation-status/` every 3 seconds and updates in real time
+8. User can toggle a track Public to get a shareable link; anyone can open it without logging in
 
 ### UC-02 — Manage Library & Playback
 1. Library lists all tracks with status badges, genre, mood, duration, privacy
@@ -488,8 +491,8 @@ Song statuses: `Draft → Generating → Completed / Failed`
 6. Empty library shows a friendly message with a link to the generator
 
 ### UC-03 — Admin Token Management
-- Django Admin at `/admin/` → User Profiles → edit `token_balance`
-- Every change is recorded in `django_admin_log` automatically
+- Django Admin at `/admin/` → Users → select users → **Grant tokens** bulk action, or edit a profile's `token_balance` directly
+- Every balance change creates a `TokenRecord` (type: `Earned` or `Spent`) for a full audit trail
 - Balance is validated: 0 ≤ balance ≤ 9999
 
 ---
